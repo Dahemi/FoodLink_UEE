@@ -10,10 +10,6 @@ FoodLink is a React Native mobile application built with Expo that connects food
 - **TypeScript**: Fully typed for better development experience
 - **Context Management**: Persistent role selection using AsyncStorage
 
-## 📱 Screenshots
-
-The app features a professional onboarding flow with role selection and personalized welcome screens for each user type.
-
 ## 🛠️ Tech Stack
 
 - **Framework**: React Native with Expo
@@ -238,12 +234,6 @@ npx expo start --clear
 - Try using tunnel mode: `npx expo start --tunnel`
 - Restart the Expo development server
 
-### Getting Help
-
-- Check the [Expo Documentation](https://docs.expo.dev/)
-- Visit [React Native Documentation](https://reactnative.dev/)
-- Ask questions on [Expo Forums](https://forums.expo.dev/)
-- Check [Stack Overflow](https://stackoverflow.com/questions/tagged/expo)
 
 ## 🚀 Building for Production
 
@@ -273,27 +263,8 @@ eas build --platform ios
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 👥 Team
-
-- **Developer**: Your Name
-- **Designer**: Your Name
-- **Project Manager**: Your Name
-
-## 🙏 Acknowledgments
-
-- Expo team for the amazing development platform
-- React Native community for excellent documentation
-- All contributors who helped build this platform
 
 ---
 
-## 📞 Support
-
-If you encounter any issues or need help:
-
-1. Check the troubleshooting section above
-2. Search existing [GitHub Issues](https://github.com/yourusername/foodlink-app/issues)
-3. Create a new issue with detailed description
-4. Join our [Discord community](your-discord-link)
 
 Happy coding! 🎉
