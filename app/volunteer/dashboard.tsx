@@ -6,8 +6,11 @@ import {
   ScrollView, 
   RefreshControl, 
   Alert,
-  Dimensions 
+  Dimensions,
+  StatusBar,
+  Platform
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, Button, Chip, FAB, Portal, Modal, Menu, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useVolunteerTasks } from '../../hooks/useVolunteerTasks';
@@ -23,6 +26,7 @@ const { width } = Dimensions.get('window');
 export default function VolunteerDashboard() {
   const router = useRouter();
   const { authState, logout } = useAuth();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'all' | 'urgent' | 'today'>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -53,6 +57,11 @@ export default function VolunteerDashboard() {
       console.log('Initializing notifications...');
     }
   }, [notificationsInitialized]);
+
+  // Debug menu state changes
+  useEffect(() => {
+    console.log('showMenu state changed:', showMenu);
+  }, [showMenu]);
 
   const handleTaskPress = (task: VolunteerTask) => {
     router.push(`/volunteer/task-detail?taskId=${task.id}`);
@@ -187,27 +196,46 @@ export default function VolunteerDashboard() {
         
         <Menu
           visible={showMenu}
-          onDismiss={() => setShowMenu(false)}
+          onDismiss={() => {
+            console.log('Menu dismissed');
+            setShowMenu(false);
+          }}
           anchor={
             <IconButton
               icon="dots-vertical"
-              onPress={() => setShowMenu(true)}
+              onPress={() => {
+                console.log('Menu button pressed, showMenu:', showMenu);
+                setShowMenu(true);
+              }}
               iconColor="#718096"
+              size={24}
             />
           }
         >
-          <Menu.Item onPress={() => {
-            setShowMenu(false);
-            // Navigate to profile
-          }} title="Profile" />
-          <Menu.Item onPress={() => {
-            setShowMenu(false);
-            // Navigate to settings
-          }} title="Settings" />
-          <Menu.Item onPress={() => {
-            setShowMenu(false);
-            handleLogout();
-          }} title="Logout" />
+          <Menu.Item 
+            onPress={() => {
+              setShowMenu(false);
+              router.push('/volunteer/profile');
+            }} 
+            title="Profile"
+            leadingIcon="account"
+          />
+          <Menu.Item 
+            onPress={() => {
+              setShowMenu(false);
+              // Navigate to settings
+            }} 
+            title="Settings"
+            leadingIcon="cog"
+          />
+          <Menu.Item 
+            onPress={() => {
+              setShowMenu(false);
+              handleLogout();
+            }} 
+            title="Logout"
+            leadingIcon="logout"
+          />
         </Menu>
       </View>
     </View>
@@ -325,7 +353,12 @@ export default function VolunteerDashboard() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <StatusBar 
+        barStyle="dark-content" 
+        backgroundColor="#F7FAFC" 
+        translucent={false}
+      />
       <ScrollView
         style={styles.scrollView}
         refreshControl={
@@ -341,30 +374,31 @@ export default function VolunteerDashboard() {
         {renderHeader()}
         {renderStats()}
         {renderTabBar()}
+        
+        {/* Task List - Now part of the main scroll */}
+        <View style={styles.taskListContainer}>
+          <TaskList
+            tasks={getDisplayTasks()}
+            loading={false}
+            refreshing={refreshing}
+            error={error}
+            scrollable={false} // Disable internal scrolling since we're in a ScrollView
+            onTaskPress={handleTaskPress}
+            onRefresh={refreshTasks}
+            onAcceptTask={handleAcceptTask}
+            onStartTask={handleStartTask}
+            onCompleteTask={handleCompleteTask}
+            onCancelTask={handleCancelTask}
+            emptyMessage={getEmptyMessage()}
+            emptyIcon={getEmptyIcon()}
+          />
+        </View>
       </ScrollView>
-
-      {/* Task List */}
-      <View style={styles.taskListContainer}>
-        <TaskList
-          tasks={getDisplayTasks()}
-          loading={false}
-          refreshing={refreshing}
-          error={error}
-          onTaskPress={handleTaskPress}
-          onRefresh={refreshTasks}
-          onAcceptTask={handleAcceptTask}
-          onStartTask={handleStartTask}
-          onCompleteTask={handleCompleteTask}
-          onCancelTask={handleCancelTask}
-          emptyMessage={getEmptyMessage()}
-          emptyIcon={getEmptyIcon()}
-        />
-      </View>
 
       {/* Floating Action Button */}
       <FAB
         icon="refresh"
-        style={styles.fab}
+        style={[styles.fab, { bottom: insets.bottom + 16 }]}
         onPress={refreshTasks}
         color="#FFFFFF"
       />
@@ -381,7 +415,7 @@ export default function VolunteerDashboard() {
           <Button onPress={() => setShowFilters(false)}>Close</Button>
         </Modal>
       </Portal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -397,6 +431,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 8 : 16,
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
@@ -459,13 +494,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   taskListContainer: {
-    flex: 1,
+    flexGrow: 1,
+    minHeight: 400, // Ensure minimum height for content
   },
   fab: {
     position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+    right: 16,
     backgroundColor: '#FF8A50',
   },
   filterModal: {
@@ -483,5 +517,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#718096',
     marginBottom: 16,
+  },
+  menuContainer: {
+    position: 'relative',
+  },
+  menuButton: {
+    margin: 0,
+  },
+  menu: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+  },
+  menuContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    minWidth: 150,
   },
 });

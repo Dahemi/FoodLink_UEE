@@ -26,7 +26,17 @@ export default function VolunteerLoginScreen() {
     password: '',
     name: '',
     phone: '',
-    address: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'India',
+      coordinates: {
+        latitude: 6.9271, // Default to Colombo, Sri Lanka
+        longitude: 79.8612,
+      },
+    },
     vehicleType: 'bike' as 'bike' | 'car' | 'van' | 'walking',
     maxDistance: 10,
   });
@@ -55,7 +65,7 @@ export default function VolunteerLoginScreen() {
       return;
     }
 
-    if (!isLogin && (!formData.name || !formData.phone || !formData.address)) {
+    if (!isLogin && (!formData.name || !formData.phone || !formData.address.street || !formData.address.city || !formData.address.state || !formData.address.zipCode)) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
@@ -193,14 +203,47 @@ export default function VolunteerLoginScreen() {
                 />
 
                 <TextInput
-                  label="Address"
-                  value={formData.address}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, address: text }))}
+                  label="Street Address"
+                  value={formData.address.street}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, address: { ...prev.address, street: text } }))}
                   mode="outlined"
-                  multiline
-                  numberOfLines={2}
                   style={styles.input}
                 />
+
+                <View style={styles.addressRow}>
+                  <TextInput
+                    label="City"
+                    value={formData.address.city}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, address: { ...prev.address, city: text } }))}
+                    mode="outlined"
+                    style={[styles.input, styles.addressInput]}
+                  />
+                  <TextInput
+                    label="State"
+                    value={formData.address.state}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, address: { ...prev.address, state: text } }))}
+                    mode="outlined"
+                    style={[styles.input, styles.addressInput]}
+                  />
+                </View>
+
+                <View style={styles.addressRow}>
+                  <TextInput
+                    label="ZIP Code"
+                    value={formData.address.zipCode}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, address: { ...prev.address, zipCode: text } }))}
+                    mode="outlined"
+                    keyboardType="numeric"
+                    style={[styles.input, styles.addressInput]}
+                  />
+                  <TextInput
+                    label="Country"
+                    value={formData.address.country}
+                    onChangeText={(text) => setFormData(prev => ({ ...prev, address: { ...prev.address, country: text } }))}
+                    mode="outlined"
+                    style={[styles.input, styles.addressInput]}
+                  />
+                </View>
 
                 {/* Vehicle Type */}
                 <View style={styles.section}>
@@ -411,6 +454,13 @@ const styles = StyleSheet.create({
   },
   input: {
     marginBottom: 16,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  addressInput: {
+    flex: 1,
   },
   section: {
     marginBottom: 20,

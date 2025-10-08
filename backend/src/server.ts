@@ -1,56 +1,117 @@
-import dotenv from 'dotenv';
-
-// Load environment variables - try multiple approaches
-const result = dotenv.config();
-if (result.error) {
-  console.log('dotenv.config() error:', result.error);
-  // Try alternative path
-  const altResult = dotenv.config({ path: '.env' });
-  if (altResult.error) {
-    console.log('Alternative dotenv.config() error:', altResult.error);
-  }
-}
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import mongoose from 'mongoose';
-import volunteerRouter from './volunteer/routes.js';
-import authRouter from './auth/routes.js';
+import { config, validateEnvironment } from './config/environment.js';
+import { connectDatabase, setupGracefulShutdown } from './config/database.js';
+import apiRoutes from './routes/index.js';
+
+// Validate environment variables
+validateEnvironment();
 
 const app = express();
 
+// Security middleware
 app.use(helmet());
-app.use(cors({ origin: '*'}));
-app.use(express.json());
-app.use(morgan('dev'));
+app.use(cors({ origin: config.CORS_ORIGIN }));
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
-});
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-app.use('/api', volunteerRouter);
-app.use('/api/auth/volunteer', authRouter);
+// Logging middleware
+if (config.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
 
+// API routes
+app.use('/api', apiRoutes);
+
+// Global error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
+  console.error('Global error handler:', err);
+  
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    const errors = Object.values(err.errors).map((e: any) => ({
+      field: e.path,
+      message: e.message
+    }));
+    return res.status(400).json({
+      success: false,
+      error: 'Validation failed',
+      errors
+    });
+  }
+  
+  // Mongoose duplicate key error
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyPattern)[0];
+    return res.status(400).json({
+      success: false,
+      error: `${field} already exists`
+    });
+  }
+  
+  // Zod validation error
+  if (err.name === 'ZodError') {
+    const errors = err.issues.map((issue: any) => ({
+      field: issue.path.join('.'),
+      message: issue.message
+    }));
+    return res.status(422).json({
+      success: false,
+      error: 'Validation failed',
+      errors
+    });
+  }
+  
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      success: false,
+      error: 'Invalid token'
+    });
+  }
+  
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      success: false,
+      error: 'Token expired'
+    });
+  }
+  
+  // Default error
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.message || 'Internal Server Error'
+  });
 });
 
-const PORT = process.env.PORT || 4000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/foodlink';
-
-console.log('Environment check:');
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('MONGO_URI:', process.env.MONGO_URI ? 'Found' : 'Not found');
-console.log('Using MONGO_URI:', MONGO_URI);
+// 404 handler
+app.use('*', (_req, res) => {
+  res.status(404).json({
+    success: false,
+    error: 'Route not found'
+  });
+});
 
 async function start() {
   try {
-    console.log('Attempting to connect to MongoDB...');
-    await mongoose.connect(MONGO_URI);
-    console.log('Connected to MongoDB successfully');
-    app.listen(PORT, '0.0.0.0', () => console.log(`API running on http://0.0.0.0:${PORT}`));
+    // Connect to database
+    await connectDatabase();
+    
+    // Setup graceful shutdown
+    setupGracefulShutdown();
+    
+    // Start server
+    app.listen(config.PORT, '0.0.0.0', () => {
+      console.log(`🚀 FoodLink API running on http://0.0.0.0:${config.PORT}`);
+      console.log(`📝 Environment: ${config.NODE_ENV}`);
+      console.log(`📊 API Info: http://0.0.0.0:${config.PORT}/api/info`);
+    });
   } catch (e) {
     console.error('Failed to start server', e);
     process.exit(1);
