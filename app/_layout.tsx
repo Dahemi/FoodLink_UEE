@@ -3,19 +3,31 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { RoleProvider } from '../context/RoleContext';
+import { AuthProvider } from '../context/AuthContext';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const theme = {
   colors: {
-    primary: '#FF8A50', // Changed from '#4CAF50' to orange
-    accent: '#FFB380', // Changed to light orange
-    background: '#FFFFFF', // Changed to white
+    primary: '#FF8A50',
+    accent: '#FFB380',
+    background: '#FFFFFF',
     surface: '#FFFFFF',
-    text: '#2D3748', // Your dark gray
-    disabled: '#E2E8F0', // Light gray
-    placeholder: '#718096', // Medium gray
+    text: '#2D3748',
+    disabled: '#E2E8F0',
+    placeholder: '#718096',
     backdrop: 'rgba(0, 0, 0, 0.5)',
+    onSurface: '#2D3748',
+    onBackground: '#2D3748',
+    elevation: {
+      level0: '#FFFFFF',
+      level1: '#FFFFFF',
+      level2: '#FFFFFF',
+      level3: '#FFFFFF',
+      level4: '#FFFFFF',
+      level5: '#FFFFFF',
+    },
   },
+  roundness: 8,
 };
 
 export default function RootLayout() {
@@ -23,18 +35,21 @@ export default function RootLayout() {
     <ErrorBoundary>
       <PaperProvider theme={theme}>
         <RoleProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: '#FFFFFF' }, // Force white background
-            }}
-          >
-            <Stack.Screen name="index" />
-            <Stack.Screen name="role-selection" />
-            <Stack.Screen name="welcome" />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" backgroundColor="#FFFFFF" />
+          <AuthProvider>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: '#FFFFFF' }, // Force white background
+              }}
+            >
+              <Stack.Screen name="index" />
+              <Stack.Screen name="role-selection" />
+              <Stack.Screen name="welcome" />
+              <Stack.Screen name="volunteer-login" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="auto" backgroundColor="#FFFFFF" />
+          </AuthProvider>
         </RoleProvider>
       </PaperProvider>
     </ErrorBoundary>

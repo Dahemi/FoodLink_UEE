@@ -55,10 +55,12 @@ export default function WelcomeScreen() {
           title: 'Welcome, Volunteer!',
           color: '#FF8A50',
           features: [
-            'View delivery requests',
-            'Schedule pickup times',
-            'Track volunteer hours',
-            'Join community events',
+            'View assigned pickup and delivery tasks',
+            'Accept tasks and manage your schedule',
+            'Navigate to pickup and delivery locations',
+            'Communicate with donors and NGOs',
+            'Track your volunteer impact and statistics',
+            'Receive real-time notifications for updates',
           ],
         };
       case 'beneficiary':
@@ -89,8 +91,26 @@ export default function WelcomeScreen() {
   };
 
   const handleGetStarted = () => {
-    // For now, just show an alert. In a real app, this would navigate to the main dashboard
-    alert('Welcome to FoodShare! The main app features are coming soon.');
+    // Navigate to role-specific dashboard
+    switch (selectedRole) {
+      case 'volunteer':
+        router.push('/volunteer/dashboard');
+        break;
+      case 'donor':
+        // Future: router.push('/donor/dashboard');
+        alert('Donor dashboard coming soon! Thank you for your patience.');
+        break;
+      case 'ngo':
+        // Future: router.push('/ngo/dashboard');
+        alert('NGO dashboard coming soon! Thank you for your patience.');
+        break;
+      case 'beneficiary':
+        // Future: router.push('/beneficiary/dashboard');
+        alert('Beneficiary dashboard coming soon! Thank you for your patience.');
+        break;
+      default:
+        alert('Please select a role first.');
+    }
   };
 
   return (
