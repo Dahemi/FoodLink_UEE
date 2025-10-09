@@ -22,7 +22,7 @@ export default function VolunteerLayout() {
           name="dashboard" 
           options={{ 
             title: 'Volunteer Dashboard',
-            headerShown: false, // Hide header since we have custom header in dashboard
+            headerShown: true,
           }} 
         />
         <Stack.Screen 
@@ -42,13 +42,6 @@ export default function VolunteerLayout() {
           name="schedule" 
           options={{ 
             title: 'My Schedule',
-          }} 
-        />
-        <Stack.Screen 
-          name="profile" 
-          options={{ 
-            title: 'Profile',
-            headerShown: false, // Custom header in profile page
           }} 
         />
       </Stack>

@@ -11,7 +11,6 @@ interface TaskListProps {
   error?: string | null;
   filter?: TaskFilter;
   showActions?: boolean;
-  scrollable?: boolean; // New prop to control scrolling behavior
   onTaskPress: (task: VolunteerTask) => void;
   onRefresh?: () => void;
   onAcceptTask?: (taskId: string) => void;
@@ -29,7 +28,6 @@ export default function TaskList({
   error = null,
   filter,
   showActions = true,
-  scrollable = true, // Default to scrollable for backward compatibility
   onTaskPress,
   onRefresh,
   onAcceptTask,
@@ -120,52 +118,30 @@ export default function TaskList({
     return renderError();
   }
 
-  if (scrollable) {
-    return (
-      <View style={styles.container}>
-        <FlatList
-          data={sortedTasks}
-          renderItem={renderTask}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.listContainer,
-            sortedTasks.length === 0 && styles.emptyListContainer
-          ]}
-          refreshControl={
-            onRefresh ? (
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={['#FF8A50']}
-                tintColor="#FF8A50"
-              />
-            ) : undefined
-          }
-          ListEmptyComponent={renderEmpty}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-        />
-      </View>
-    );
-  }
-
-  // Non-scrollable version for use inside ScrollView
   return (
     <View style={styles.container}>
-      <View style={[
-        styles.listContainer,
-        sortedTasks.length === 0 && styles.emptyListContainer
-      ]}>
-        {sortedTasks.length === 0 ? (
-          renderEmpty()
-        ) : (
-          sortedTasks.map((task) => (
-            <View key={task.id}>
-              {renderTask({ item: task })}
-            </View>
-          ))
-        )}
-      </View>
+      <FlatList
+        data={sortedTasks}
+        renderItem={renderTask}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.listContainer,
+          sortedTasks.length === 0 && styles.emptyListContainer
+        ]}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#FF8A50']}
+              tintColor="#FF8A50"
+            />
+          ) : undefined
+        }
+        ListEmptyComponent={renderEmpty}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+      />
     </View>
   );
 }

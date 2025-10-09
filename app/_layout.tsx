@@ -2,7 +2,6 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Provider as PaperProvider } from 'react-native-paper';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RoleProvider } from '../context/RoleContext';
 import { AuthProvider } from '../context/AuthContext';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -33,11 +32,10 @@ const theme = {
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <PaperProvider theme={theme}>
-          <RoleProvider>
-            <AuthProvider>
+    <ErrorBoundary>
+      <PaperProvider theme={theme}>
+        <RoleProvider>
+          <AuthProvider>
             <Stack
               screenOptions={{
                 headerShown: false,
@@ -51,10 +49,9 @@ export default function RootLayout() {
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="auto" backgroundColor="#FFFFFF" />
-            </AuthProvider>
-          </RoleProvider>
-        </PaperProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+          </AuthProvider>
+        </RoleProvider>
+      </PaperProvider>
+    </ErrorBoundary>
   );
 }

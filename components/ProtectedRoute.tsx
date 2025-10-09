@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../context/RoleContext';
@@ -22,23 +22,6 @@ export default function ProtectedRoute({
   const { selectedRole } = useRole();
   const router = useRouter();
 
-  // Handle navigation in useEffect to avoid setState during render
-  useEffect(() => {
-    if (!authState.loading) {
-      // Check authentication requirement
-      if (requireAuth && !authState.isAuthenticated) {
-        router.replace(fallbackRoute);
-        return;
-      }
-
-      // Check role requirement
-      if (requireRole && selectedRole !== requireRole) {
-        router.replace('/role-selection');
-        return;
-      }
-    }
-  }, [authState.loading, authState.isAuthenticated, selectedRole, requireAuth, requireRole, fallbackRoute, router]);
-
   // Show loading while checking authentication
   if (authState.loading) {
     return (
@@ -52,12 +35,15 @@ export default function ProtectedRoute({
     );
   }
 
-  // Don't render children if not authenticated or wrong role
+  // Check authentication requirement
   if (requireAuth && !authState.isAuthenticated) {
+    router.replace(fallbackRoute);
     return null;
   }
 
+  // Check role requirement
   if (requireRole && selectedRole !== requireRole) {
+    router.replace('/role-selection');
     return null;
   }
 

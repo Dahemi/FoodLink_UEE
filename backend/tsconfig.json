@@ -11,8 +11,7 @@
     "strict": true,
     "resolveJsonModule": true
   },
-  "include": [
-    "src"
-  ],
-  "extends": "expo/tsconfig.base"
+  "include": ["src"]
 }
+
+

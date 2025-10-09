@@ -27,36 +27,36 @@ export const VolunteerApi = {
   },
 
   async getTasks(): Promise<VolunteerTask[]> {
-    return await http<VolunteerTask[]>('/api/volunteer/tasks');
+    return await http<VolunteerTask[]>('/api/tasks');
   },
 
   async getTask(taskId: string): Promise<VolunteerTask> {
-    return await http<VolunteerTask>(`/api/volunteer/tasks/${taskId}`);
+    return await http<VolunteerTask>(`/api/tasks/${taskId}`);
   },
 
   async createTask(task: Omit<VolunteerTask, 'id'>): Promise<VolunteerTask> {
-    return await http<VolunteerTask>('/api/volunteer/tasks', {
+    return await http<VolunteerTask>('/api/tasks', {
       method: 'POST',
       body: JSON.stringify(task),
     });
   },
 
   async updateTaskStatus(taskId: string, status: VolunteerTask['status']): Promise<VolunteerTask> {
-    return await http<VolunteerTask>(`/api/volunteer/tasks/${taskId}/status`, {
+    return await http<VolunteerTask>(`/api/tasks/${taskId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
   },
 
   async rescheduleTask(taskId: string, pickupTime: string, deliveryTime?: string): Promise<VolunteerTask> {
-    return await http<VolunteerTask>(`/api/volunteer/tasks/${taskId}/reschedule`, {
+    return await http<VolunteerTask>(`/api/tasks/${taskId}/reschedule`, {
       method: 'PATCH',
       body: JSON.stringify({ pickupTime, deliveryTime }),
     });
   },
 
   async getStats(): Promise<VolunteerStats> {
-    return await http<VolunteerStats>('/api/volunteer/stats');
+    return await http<VolunteerStats>('/api/stats');
   },
 };
 
