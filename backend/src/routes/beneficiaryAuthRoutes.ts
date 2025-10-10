@@ -42,14 +42,21 @@ router.post('/register', async (req, res, next) => {
 router.post('/login', async (req, res, next) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
+    console.log('Login attempt:', email);
     
     const beneficiary = await BeneficiaryModel.findOne({ email, isActive: true });
     if (!beneficiary) {
+      console.log('Beneficiary not found');
       return sendError(res, 'Invalid credentials', 401);
     }
 
-    const isPasswordValid = await (beneficiary as any).comparePassword(password);
+    console.log('Found beneficiary:', beneficiary.email);
+    
+    const isPasswordValid = await beneficiary.comparePassword(password);
+    console.log('Password comparison result:', isPasswordValid);
+    
     if (!isPasswordValid) {
+      console.log('Password invalid');
       return sendError(res, 'Invalid credentials', 401);
     }
 
@@ -70,8 +77,9 @@ router.post('/login', async (req, res, next) => {
       expiresAt,
       user: beneficiary.toJSON(),
     }, 'Login successful');
-  } catch (e) { 
-    next(e); 
+  } catch (e) {
+    console.error('Login error:', e);
+    next(e);
   }
 });
 

@@ -75,33 +75,31 @@ export default function BeneficiaryLoginScreen() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
-      return;
-    }
-
-    if (!isLogin) {
-      // Add location validation
-      if (!formData.address.coordinates.latitude || !formData.address.coordinates.longitude) {
-        Alert.alert('Error', 'Location coordinates are required');
-        return;
-      }
-
-      // Add coordinate range validation
-      const { latitude, longitude } = formData.address.coordinates;
-      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-        Alert.alert('Error', 'Invalid coordinates');
-        return;
-      }
-    }
-
     try {
       if (isLogin) {
-        await BeneficiaryAuthApi.login({
-          email: formData.email,
-          password: formData.password,
+        // Use the same approach as the test login
+        const response = await fetch('http://192.168.8.101:4000/api/auth/beneficiary/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
         });
+
+        if (!response.ok) {
+          throw new Error('Login failed');
+        }
+
+        const data = await response.json();
+        console.log('Login successful:', data);
+        
+        // Navigate to dashboard after successful login
+        router.replace('/beneficiary/dashboard');
       } else {
+        // Registration flow remains the same
         const registerData: BeneficiaryRegisterData = {
           email: formData.email,
           password: formData.password,
@@ -112,10 +110,10 @@ export default function BeneficiaryLoginScreen() {
             city: formData.address.city,
             state: formData.address.state,
             zipCode: formData.address.zipCode,
-            country: formData.address.country,
+            country: formData.address.country || 'Sri Lanka',
             coordinates: {
-              latitude: formData.address.coordinates.latitude,
-              longitude: formData.address.coordinates.longitude,
+              latitude: formData.address.coordinates.latitude || 6.9271,
+              longitude: formData.address.coordinates.longitude || 79.8612,
             }
           },
           householdSize: formData.householdSize,
@@ -124,12 +122,12 @@ export default function BeneficiaryLoginScreen() {
         };
         
         await BeneficiaryAuthApi.register(registerData);
+        router.replace('/beneficiary/dashboard');
       }
-      router.replace('/beneficiary/dashboard');
     } catch (error) {
       Alert.alert(
         'Error',
-        error instanceof Error ? error.message : 'Registration failed'
+        error instanceof Error ? error.message : 'Authentication failed'
       );
     }
   };

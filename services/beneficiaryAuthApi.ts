@@ -39,6 +39,9 @@ export const BeneficiaryAuthApi = {
     return http<AuthResponse>('/api/auth/beneficiary/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
+      headers: {
+        'Content-Type': 'application/json' 
+      }
     });
   },
 
