@@ -16,6 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BeneficiaryAuthApi } from '../services/beneficiaryAuthApi';
 import { BeneficiaryRegisterData } from '../types/beneficiaryAuth';
+import { loginStyles } from '../styles/beneficiary/loginStyles';
 
 const { width } = Dimensions.get('window');
 
@@ -35,8 +36,8 @@ export default function BeneficiaryLoginScreen() {
       zipCode: '',
       country: '',
       coordinates: {
-        latitude: 0,
-        longitude: 0,
+        latitude: null, // Change from 0 to null
+        longitude: null // Change from 0 to null
       },
     },
     householdSize: 1,
@@ -77,6 +78,21 @@ export default function BeneficiaryLoginScreen() {
     if (formData.password.length < 6) {
       Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
+    }
+
+    if (!isLogin) {
+      // Add location validation
+      if (!formData.address.coordinates.latitude || !formData.address.coordinates.longitude) {
+        Alert.alert('Error', 'Location coordinates are required');
+        return;
+      }
+
+      // Add coordinate range validation
+      const { latitude, longitude } = formData.address.coordinates;
+      if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        Alert.alert('Error', 'Invalid coordinates');
+        return;
+      }
     }
 
     try {
@@ -333,112 +349,4 @@ export default function BeneficiaryLoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F7FAFC',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 20,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  logoCircle1: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFB380',
-    top: 10,
-    left: 15,
-    transform: [{ rotate: '-15deg' }],
-  },
-  logoCircle2: {
-    position: 'absolute',
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    backgroundColor: '#FF8A50',
-    top: 15,
-    right: 10,
-    transform: [{ rotate: '20deg' }],
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginTop: 50,
-    letterSpacing: 0.5,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#718096',
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  formCard: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 12,
-  },
-  formContent: {
-    padding: 16,
-  },
-  input: {
-    marginBottom: 16,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2D3748',
-    marginBottom: 12,
-  },
-  dietaryContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  dietaryChip: {
-    marginBottom: 8,
-  },
-  submitButton: {
-    marginTop: 20,
-    marginBottom: 16,
-    backgroundColor: '#FF8A50',
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  toggleText: {
-    fontSize: 14,
-    color: '#718096',
-  },
-  toggleLink: {
-    fontSize: 14,
-    color: '#FF8A50',
-    fontWeight: '600',
-  },
-});
+const styles = loginStyles;
