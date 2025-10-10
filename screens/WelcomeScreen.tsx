@@ -105,8 +105,7 @@ export default function WelcomeScreen() {
         alert('NGO dashboard coming soon! Thank you for your patience.');
         break;
       case 'beneficiary':
-        // Future: router.push('/beneficiary/dashboard');
-        alert('Beneficiary dashboard coming soon! Thank you for your patience.');
+        router.push('/beneficiary-login');
         break;
       default:
         alert('Please select a role first.');

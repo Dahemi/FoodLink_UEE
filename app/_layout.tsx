@@ -48,6 +48,7 @@ export default function RootLayout() {
               <Stack.Screen name="role-selection" />
               <Stack.Screen name="welcome" />
               <Stack.Screen name="volunteer-login" />
+              <Stack.Screen name="beneficiary-login" />
               <Stack.Screen name="+not-found" />
             </Stack>
             <StatusBar style="auto" backgroundColor="#FFFFFF" />
