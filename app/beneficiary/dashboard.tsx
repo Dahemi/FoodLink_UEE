@@ -44,13 +44,13 @@ export default function BeneficiaryDashboard() {
       case 'home':
         setActiveTab('home');
         break;
-      case 'tasks':
-        setActiveTab('tasks');
-        router.push('/beneficiary/tasks');
+      case 'map':
+        setActiveTab('map');
+        router.push('/beneficiary/map');
         break;
-      case 'history':
-        setActiveTab('history');
-        router.push('/beneficiary/history');
+      case 'alerts':
+        setActiveTab('alerts');
+        router.push('/beneficiary/alerts');
         break;
       case 'profile':
         setActiveTab('profile');
@@ -133,45 +133,36 @@ export default function BeneficiaryDashboard() {
             size={24} 
             color={activeTab === 'home' ? '#FF8A50' : '#718096'} 
           />
-          <Text style={[
-            styles.navText, 
-            activeTab !== 'home' && styles.navTextInactive
-          ]}>
+          <Text style={[styles.navText, activeTab !== 'home' && styles.navTextInactive]}>
             Home
           </Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.navItem}
-          onPress={() => handleTabPress('tasks')}
+          onPress={() => handleTabPress('map')}
         >
           <MaterialCommunityIcons 
-            name="format-list-checks" 
+            name="map-marker" 
             size={24} 
-            color={activeTab === 'tasks' ? '#FF8A50' : '#718096'} 
+            color={activeTab === 'map' ? '#FF8A50' : '#718096'} 
           />
-          <Text style={[
-            styles.navText, 
-            activeTab !== 'tasks' && styles.navTextInactive
-          ]}>
-            Tasks
+          <Text style={[styles.navText, activeTab !== 'map' && styles.navTextInactive]}>
+            Map
           </Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity 
           style={styles.navItem}
-          onPress={() => handleTabPress('history')}
+          onPress={() => handleTabPress('alerts')}
         >
           <MaterialCommunityIcons 
-            name="history" 
+            name="bell" 
             size={24} 
-            color={activeTab === 'history' ? '#FF8A50' : '#718096'} 
+            color={activeTab === 'alerts' ? '#FF8A50' : '#718096'} 
           />
-          <Text style={[
-            styles.navText, 
-            activeTab !== 'history' && styles.navTextInactive
-          ]}>
-            History
+          <Text style={[styles.navText, activeTab !== 'alerts' && styles.navTextInactive]}>
+            Alerts
           </Text>
         </TouchableOpacity>
         
@@ -184,10 +175,7 @@ export default function BeneficiaryDashboard() {
             size={24} 
             color={activeTab === 'profile' ? '#FF8A50' : '#718096'} 
           />
-          <Text style={[
-            styles.navText, 
-            activeTab !== 'profile' && styles.navTextInactive
-          ]}>
+          <Text style={[styles.navText, activeTab !== 'profile' && styles.navTextInactive]}>
             Profile
           </Text>
         </TouchableOpacity>

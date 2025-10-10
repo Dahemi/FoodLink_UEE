@@ -26,15 +26,17 @@ export default function BeneficiaryLayout() {
           }} 
         />
         <Stack.Screen 
-          name="tasks" 
+          name="map" 
           options={{ 
-            title: 'My Tasks',
+            title: 'Map',
+            headerShown: false,
           }} 
         />
         <Stack.Screen 
-          name="history" 
+          name="alerts" 
           options={{ 
-            title: 'History',
+            title: 'Alerts',
+            headerShown: false,
           }} 
         />
         <Stack.Screen 
