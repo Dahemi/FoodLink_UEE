@@ -70,14 +70,8 @@ export default function BeneficiaryLoginScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.email || !formData.password) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
     try {
       if (isLogin) {
-        // Use the same approach as the test login
         const response = await fetch('http://192.168.8.101:4000/api/auth/beneficiary/login', {
           method: 'POST',
           headers: {
@@ -95,8 +89,14 @@ export default function BeneficiaryLoginScreen() {
 
         const data = await response.json();
         console.log('Login successful:', data);
+
+        // Store auth data in context
+        await login({
+          email: formData.email,
+          password: formData.password
+        });
         
-        // Navigate to dashboard after successful login
+        // Then navigate
         router.replace('/beneficiary/dashboard');
       } else {
         // Registration flow remains the same

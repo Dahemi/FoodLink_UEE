@@ -83,23 +83,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setAuthState(prev => ({ ...prev, loading: true, error: null }));
       
-      const response = await VolunteerAuthApi.login(credentials);
+      // Use direct fetch approach that worked
+      const response = await fetch('http://192.168.8.101:4000/api/auth/beneficiary/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
       
       // Store auth data
       const authData = {
-        token: response.token,
-        expiresAt: response.expiresAt,
-        refreshToken: response.refreshToken,
+        token: data.token,
+        expiresAt: data.expiresAt,
+        refreshToken: data.refreshToken,
       };
       
       await Promise.all([
         AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authData)),
-        AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(response.user)),
+        AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(data.user)),
       ]);
 
       setAuthState({
         isAuthenticated: true,
-        user: response.user,
+        user: data.user,
         loading: false,
         error: null,
       });
