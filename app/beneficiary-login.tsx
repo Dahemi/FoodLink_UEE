@@ -14,7 +14,8 @@ import { TextInput, Button, Card, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
-import BeneficiaryAuthApi from '../services/beneficiaryAuthApi';
+import { BeneficiaryAuthApi } from '../services/beneficiaryAuthApi';
+import { BeneficiaryRegisterData } from '../types/beneficiaryAuth';
 
 const { width } = Dimensions.get('window');
 
