@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,14 @@ import { Card, Button, Chip, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { dashboardStyles } from '../styles/beneficiary/loginStyles';
+import { dashboardStyles } from '../../styles/beneficiary/dashboardStyles';
 
 const { width } = Dimensions.get('window');
 
 export default function BeneficiaryDashboard() {
   const router = useRouter();
   const { authState } = useAuth();
+  const [activeTab, setActiveTab] = useState('home');
 
   const foodPoints = [
     {
@@ -37,6 +38,26 @@ export default function BeneficiaryDashboard() {
     },
     // Add more food points as needed
   ];
+
+  const handleTabPress = (tabName: string) => {
+    switch(tabName) {
+      case 'home':
+        setActiveTab('home');
+        break;
+      case 'tasks':
+        setActiveTab('tasks');
+        router.push('/beneficiary/tasks');
+        break;
+      case 'history':
+        setActiveTab('history');
+        router.push('/beneficiary/history');
+        break;
+      case 'profile':
+        setActiveTab('profile');
+        router.push('/beneficiary/profile');
+        break;
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -103,21 +124,72 @@ export default function BeneficiaryDashboard() {
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <MaterialCommunityIcons name="home" size={24} color="#FF8A50" />
-          <Text style={styles.navText}>Home</Text>
+        <TouchableOpacity 
+          style={styles.navItem} 
+          onPress={() => handleTabPress('home')}
+        >
+          <MaterialCommunityIcons 
+            name="home" 
+            size={24} 
+            color={activeTab === 'home' ? '#FF8A50' : '#718096'} 
+          />
+          <Text style={[
+            styles.navText, 
+            activeTab !== 'home' && styles.navTextInactive
+          ]}>
+            Home
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <MaterialCommunityIcons name="compass" size={24} color="#718096" />
-          <Text style={[styles.navText, styles.navTextInactive]}>Explore</Text>
+        
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => handleTabPress('tasks')}
+        >
+          <MaterialCommunityIcons 
+            name="format-list-checks" 
+            size={24} 
+            color={activeTab === 'tasks' ? '#FF8A50' : '#718096'} 
+          />
+          <Text style={[
+            styles.navText, 
+            activeTab !== 'tasks' && styles.navTextInactive
+          ]}>
+            Tasks
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <MaterialCommunityIcons name="clock" size={24} color="#718096" />
-          <Text style={[styles.navText, styles.navTextInactive]}>History</Text>
+        
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => handleTabPress('history')}
+        >
+          <MaterialCommunityIcons 
+            name="history" 
+            size={24} 
+            color={activeTab === 'history' ? '#FF8A50' : '#718096'} 
+          />
+          <Text style={[
+            styles.navText, 
+            activeTab !== 'history' && styles.navTextInactive
+          ]}>
+            History
+          </Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
-          <MaterialCommunityIcons name="account" size={24} color="#718096" />
-          <Text style={[styles.navText, styles.navTextInactive]}>Profile</Text>
+        
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => handleTabPress('profile')}
+        >
+          <MaterialCommunityIcons 
+            name="account" 
+            size={24} 
+            color={activeTab === 'profile' ? '#FF8A50' : '#718096'} 
+          />
+          <Text style={[
+            styles.navText, 
+            activeTab !== 'profile' && styles.navTextInactive
+          ]}>
+            Profile
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

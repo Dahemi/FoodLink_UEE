@@ -21,8 +21,20 @@ export default function BeneficiaryLayout() {
         <Stack.Screen 
           name="dashboard" 
           options={{ 
-            title: 'Beneficiary Dashboard',
+            title: 'Home',
             headerShown: false,
+          }} 
+        />
+        <Stack.Screen 
+          name="tasks" 
+          options={{ 
+            title: 'My Tasks',
+          }} 
+        />
+        <Stack.Screen 
+          name="history" 
+          options={{ 
+            title: 'History',
           }} 
         />
         <Stack.Screen 

@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-Export const styles = StyleSheet.create({
+export const dashboardStyles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F7FAFC',
@@ -71,20 +71,33 @@ Export const styles = StyleSheet.create({
   bottomNav: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    alignItems: 'center',
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   navItem: {
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 64,
   },
   navText: {
     fontSize: 12,
     marginTop: 4,
     color: '#FF8A50',
+    fontWeight: '500',
   },
   navTextInactive: {
     color: '#718096',
+    fontWeight: 'normal',
   },
 });
