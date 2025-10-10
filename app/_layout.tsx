@@ -5,6 +5,7 @@ import { Provider as PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RoleProvider } from '../context/RoleContext';
 import { AuthProvider } from '../context/AuthContext';
+import { DonorAuthProvider } from '../context/DonorAuthContext';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const theme = {
@@ -38,19 +39,22 @@ export default function RootLayout() {
         <PaperProvider theme={theme}>
           <RoleProvider>
             <AuthProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: '#FFFFFF' }, // Force white background
-              }}
-            >
-              <Stack.Screen name="index" />
-              <Stack.Screen name="role-selection" />
-              <Stack.Screen name="welcome" />
-              <Stack.Screen name="volunteer-login" />
-              <Stack.Screen name="+not-found" />
-            </Stack>
-            <StatusBar style="auto" backgroundColor="#FFFFFF" />
+              <DonorAuthProvider>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: '#FFFFFF' }, // Force white background
+                  }}
+                >
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="role-selection" />
+                  <Stack.Screen name="welcome" />
+                  <Stack.Screen name="volunteer-login" />
+                  <Stack.Screen name="donor-login" />
+                  <Stack.Screen name="+not-found" />
+                </Stack>
+                <StatusBar style="auto" backgroundColor="#FFFFFF" />
+              </DonorAuthProvider>
             </AuthProvider>
           </RoleProvider>
         </PaperProvider>

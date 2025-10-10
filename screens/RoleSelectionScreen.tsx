@@ -83,10 +83,12 @@ export default function RoleSelectionScreen() {
 
   const handleRoleSelect = async (role: UserRole) => {
     await setRole(role);
-    
+
     // Redirect volunteers to login screen
     if (role === 'volunteer') {
       router.push('/volunteer-login');
+    } else if (role === 'donor') {
+      router.push('/donor-login');
     } else {
       router.push('/welcome');
     }
