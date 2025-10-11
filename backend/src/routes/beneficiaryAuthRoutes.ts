@@ -51,12 +51,10 @@ router.post('/login', async (req, res, next) => {
     }
 
     console.log('Found beneficiary:', beneficiary.email);
-    
     const isPasswordValid = await beneficiary.comparePassword(password);
     console.log('Password comparison result:', isPasswordValid);
-    
+
     if (!isPasswordValid) {
-      console.log('Password invalid');
       return sendError(res, 'Invalid credentials', 401);
     }
 
@@ -65,18 +63,23 @@ router.post('/login', async (req, res, next) => {
     await beneficiary.save();
 
     const { accessToken, refreshToken } = generateTokens(beneficiary._id.toString(), 'beneficiary');
-    const refreshTokenHash = (beneficiary as any).generateRefreshToken();
-    
+    const refreshTokenHash = beneficiary.generateRefreshToken();
     await beneficiary.save();
 
     const expiresAt = Date.now() + (60 * 60 * 1000); // 1 hour
 
-    sendSuccess(res, {
-      token: accessToken,
-      refreshToken: refreshTokenHash,
-      expiresAt,
-      user: beneficiary.toJSON(),
-    }, 'Login successful');
+    // Make sure we're sending the correct response structure
+    return res.json({
+      success: true,
+      data: {
+        token: accessToken,
+        refreshToken: refreshTokenHash,
+        expiresAt,
+        user: beneficiary.toJSON()
+      },
+      message: 'Login successful'
+    });
+
   } catch (e) {
     console.error('Login error:', e);
     next(e);

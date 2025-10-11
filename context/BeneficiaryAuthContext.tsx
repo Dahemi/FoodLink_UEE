@@ -85,18 +85,23 @@ export const BeneficiaryAuthProvider: React.FC<{ children: ReactNode }> = ({ chi
     try {
       setAuthState(prev => ({ ...prev, loading: true, error: null }));
       
+      console.log('Attempting login...'); // Add logging
       const response = await BeneficiaryAuthApi.login(credentials);
+      console.log('Login response:', response); // Add logging
+      
+      if (!response || !response.token || !response.user) {
+        console.error('Invalid response structure:', response); // Add logging
+        throw new Error('Invalid authentication response');
+      }
       
       const authData = {
         token: response.token,
-        expiresAt: response.expiresAt,
+        expiresAt: response.expiresAt || Date.now() + (60 * 60 * 1000),
         refreshToken: response.refreshToken,
       };
 
-      await Promise.all([
-        AsyncStorage.setItem(BENEFICIARY_AUTH_KEY, JSON.stringify(authData)),
-        AsyncStorage.setItem(BENEFICIARY_USER_KEY, JSON.stringify(response.user)),
-      ]);
+      await AsyncStorage.setItem(BENEFICIARY_AUTH_KEY, JSON.stringify(authData));
+      await AsyncStorage.setItem(BENEFICIARY_USER_KEY, JSON.stringify(response.user));
 
       setAuthState({
         isAuthenticated: true,
@@ -105,6 +110,7 @@ export const BeneficiaryAuthProvider: React.FC<{ children: ReactNode }> = ({ chi
         error: null,
       });
     } catch (error) {
+      console.error('Login error:', error); // Add logging
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       setAuthState(prev => ({
         ...prev,

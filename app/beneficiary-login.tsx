@@ -77,7 +77,6 @@ export default function BeneficiaryLoginScreen() {
 
   try {
     if (isLogin) {
-      // Use context login only
       await login({
         email: formData.email,
         password: formData.password
@@ -110,9 +109,10 @@ export default function BeneficiaryLoginScreen() {
       router.replace('/beneficiary/dashboard');
     }
   } catch (error) {
+    console.error('Authentication error:', error);
     Alert.alert(
       'Error',
-      error instanceof Error ? error.message : 'Authentication failed'
+      error instanceof Error ? error.message : 'Authentication failed. Please try again.'
     );
   }
 };
