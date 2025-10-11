@@ -28,8 +28,10 @@ export default function ProtectedRoute({
   const pathname = usePathname();
 
   // Select the appropriate auth context based on requireRole
-  const authState =
-    requireRole === 'donor' ? donorAuth.authState : volunteerAuth.authState;
+  const authState = 
+    requireRole === 'ngo' ? ngoAuth.authState :
+    requireRole === 'donor' ? donorAuth.authState :
+    volunteerAuth.authState;
 
   // Debug logging
   useEffect(() => {
@@ -52,9 +54,6 @@ export default function ProtectedRoute({
     authState.loading,
   ]);
 
-  // Choose the appropriate auth context based on the required role
-  const authState = requireRole === 'ngo' ? ngoAuth.authState : volunteerAuth.authState;
-
   // Handle navigation in useEffect to avoid setState during render
   useEffect(() => {
     if (!authState.loading) {
@@ -65,8 +64,12 @@ export default function ProtectedRoute({
         // Redirect to appropriate login based on role
         if (requireRole === 'ngo') {
           router.replace('/ngo-login');
+        } else if (requireRole === 'donor') {
+          router.replace('/donor-login');
+        } else if (requireRole === 'volunteer') {
+          router.replace('/volunteer-login');
         } else {
-          router.replace(fallbackRoute);
+          router.replace(fallbackRoute as any);
         }
         return;
       }

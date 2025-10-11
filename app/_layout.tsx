@@ -41,40 +41,33 @@ export default function RootLayout() {
           <RoleProvider>
             <AuthProvider>
               <NGOAuthProvider>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: '#FFFFFF' },
-                  }}
-                >
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="role-selection" />
-                  <Stack.Screen name="welcome" />
-                  <Stack.Screen name="volunteer-login" />
-                  <Stack.Screen name="ngo-login" />
-                  <Stack.Screen name="volunteer" options={{ headerShown: false }} />
-                  <Stack.Screen name="NGO" options={{ headerShown: false }} />
-                  <Stack.Screen name="+not-found" />
-                </Stack>
-                <StatusBar style="auto" backgroundColor="#FFFFFF" />
+                <DonorAuthProvider>
+                  {/* Single Stack navigator for all routes */}
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: '#FFFFFF' },
+                    }}
+                  >
+                    {/* Common routes */}
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="role-selection" />
+                    <Stack.Screen name="welcome" />
+                    <Stack.Screen name="+not-found" />
+                    
+                    {/* Auth routes */}
+                    <Stack.Screen name="volunteer-login" />
+                    <Stack.Screen name="ngo-login" />
+                    <Stack.Screen name="donor-login" />
+                    
+                    {/* Protected route groups */}
+                    <Stack.Screen name="volunteer" options={{ headerShown: false }} />
+                    <Stack.Screen name="NGO" options={{ headerShown: false }} />
+                    <Stack.Screen name="donor" options={{ headerShown: false }} />
+                  </Stack>
+                  <StatusBar style="auto" backgroundColor="#FFFFFF" />
+                </DonorAuthProvider>
               </NGOAuthProvider>
-
-              <DonorAuthProvider>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: '#FFFFFF' }, // Force white background
-                  }}
-                >
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="role-selection" />
-                  <Stack.Screen name="welcome" />
-                  <Stack.Screen name="volunteer-login" />
-                  <Stack.Screen name="donor-login" />
-                  <Stack.Screen name="+not-found" />
-                </Stack>
-                <StatusBar style="auto" backgroundColor="#FFFFFF" />
-              </DonorAuthProvider>
             </AuthProvider>
           </RoleProvider>
         </PaperProvider>
