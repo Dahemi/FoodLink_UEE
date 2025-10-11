@@ -7,6 +7,7 @@ import { RoleProvider } from '../context/RoleContext';
 import { AuthProvider } from '../context/AuthContext';
 import { NGOAuthProvider } from '../context/NGOAuthContext';
 import { DonorAuthProvider } from '../context/DonorAuthContext';
+import { BeneficiaryAuthProvider } from '../context/BeneficiaryAuthContext';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 const theme = {
@@ -42,30 +43,34 @@ export default function RootLayout() {
             <AuthProvider>
               <NGOAuthProvider>
                 <DonorAuthProvider>
-                  {/* Single Stack navigator for all routes */}
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      contentStyle: { backgroundColor: '#FFFFFF' },
-                    }}
-                  >
-                    {/* Common routes */}
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="role-selection" />
-                    <Stack.Screen name="welcome" />
-                    <Stack.Screen name="+not-found" />
-                    
-                    {/* Auth routes */}
-                    <Stack.Screen name="volunteer-login" />
-                    <Stack.Screen name="ngo-login" />
-                    <Stack.Screen name="donor-login" />
-                    
-                    {/* Protected route groups */}
-                    <Stack.Screen name="volunteer" options={{ headerShown: false }} />
-                    <Stack.Screen name="NGO" options={{ headerShown: false }} />
-                    <Stack.Screen name="donor" options={{ headerShown: false }} />
-                  </Stack>
-                  <StatusBar style="auto" backgroundColor="#FFFFFF" />
+                  <BeneficiaryAuthProvider>
+                    {/* Single Stack navigator for all routes */}
+                    <Stack
+                      screenOptions={{
+                        headerShown: false,
+                        contentStyle: { backgroundColor: '#FFFFFF' },
+                      }}
+                    >
+                      {/* Common routes */}
+                      <Stack.Screen name="index" />
+                      <Stack.Screen name="role-selection" />
+                      <Stack.Screen name="welcome" />
+                      <Stack.Screen name="+not-found" />
+                      
+                      {/* Auth routes */}
+                      <Stack.Screen name="volunteer-login" />
+                      <Stack.Screen name="ngo-login" />
+                      <Stack.Screen name="donor-login" />
+                      <Stack.Screen name="beneficiary-login" />
+                      
+                      {/* Protected route groups */}
+                      <Stack.Screen name="volunteer" options={{ headerShown: false }} />
+                      <Stack.Screen name="NGO" options={{ headerShown: false }} />
+                      <Stack.Screen name="donor" options={{ headerShown: false }} />
+                      <Stack.Screen name="beneficiary" options={{ headerShown: false }} />
+                    </Stack>
+                    <StatusBar style="auto" backgroundColor="#FFFFFF" />
+                  </BeneficiaryAuthProvider>
                 </DonorAuthProvider>
               </NGOAuthProvider>
             </AuthProvider>

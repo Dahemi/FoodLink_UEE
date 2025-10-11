@@ -70,7 +70,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow FoodLink to use your location to set pickup addresses."
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to find nearby food assistance."
         }
       ]
     ],

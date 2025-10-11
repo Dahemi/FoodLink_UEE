@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNGOAuth } from '../context/NGOAuthContext';
 import { useDonorAuth } from '../context/DonorAuthContext';
+import { useBeneficiaryAuth } from '../context/BeneficiaryAuthContext';
 import { useRole } from '../context/RoleContext';
 import LoadingSpinner from './LoadingSpinner';
 import { useRouter, usePathname } from 'expo-router';
@@ -20,18 +21,20 @@ export default function ProtectedRoute({
   requireRole,
   fallbackRoute = '/volunteer-login',
 }: ProtectedRouteProps) {
-  const volunteerAuth = useAuth();
-  const ngoAuth = useNGOAuth();
-  const donorAuth = useDonorAuth();
+  const { authState: volunteerAuthState } = useAuth();
+  const { authState: ngoAuthState } = useNGOAuth();
+  const { authState: donorAuthState } = useDonorAuth();
+  const { authState: beneficiaryAuthState } = useBeneficiaryAuth();
   const { selectedRole } = useRole();
   const router = useRouter();
   const pathname = usePathname();
 
   // Select the appropriate auth context based on requireRole
   const authState = 
-    requireRole === 'ngo' ? ngoAuth.authState :
-    requireRole === 'donor' ? donorAuth.authState :
-    volunteerAuth.authState;
+    requireRole === 'ngo' ? ngoAuthState :
+    requireRole === 'donor' ? donorAuthState :
+    requireRole === 'beneficiary' ? beneficiaryAuthState :
+    volunteerAuthState;
 
   // Debug logging
   useEffect(() => {
@@ -54,9 +57,15 @@ export default function ProtectedRoute({
     authState.loading,
   ]);
 
-  // Handle navigation in useEffect to avoid setState during render
   useEffect(() => {
-    if (!authState.loading) {
+    // Wait for all auth states to load
+    const allLoaded = 
+      !volunteerAuthState.loading && 
+      !ngoAuthState.loading && 
+      !donorAuthState.loading && 
+      !beneficiaryAuthState.loading;
+
+    if (allLoaded) {
       // Check authentication requirement
       if (requireAuth && !authState.isAuthenticated) {
         console.log('ProtectedRoute: Not authenticated, redirecting to:', fallbackRoute);
@@ -68,13 +77,15 @@ export default function ProtectedRoute({
           router.replace('/donor-login');
         } else if (requireRole === 'volunteer') {
           router.replace('/volunteer-login');
+        } else if (requireRole === 'beneficiary') {
+          router.replace('/beneficiary-login');
         } else {
           router.replace(fallbackRoute as any);
         }
         return;
       }
 
-      // Check role requirement
+      // Check role match
       if (requireRole && selectedRole !== requireRole) {
         console.log('ProtectedRoute: Wrong role, redirecting to role selection');
         router.replace('/role-selection');
@@ -82,8 +93,14 @@ export default function ProtectedRoute({
       }
     }
   }, [
-    authState.loading,
-    authState.isAuthenticated,
+    volunteerAuthState.loading,
+    volunteerAuthState.isAuthenticated,
+    ngoAuthState.loading,
+    ngoAuthState.isAuthenticated,
+    donorAuthState.loading,
+    donorAuthState.isAuthenticated,
+    beneficiaryAuthState.loading,
+    beneficiaryAuthState.isAuthenticated,
     selectedRole,
     requireAuth,
     requireRole,
@@ -92,7 +109,12 @@ export default function ProtectedRoute({
   ]);
 
   // Show loading while checking authentication
-  if (authState.loading) {
+  if (
+    volunteerAuthState.loading || 
+    ngoAuthState.loading || 
+    donorAuthState.loading || 
+    beneficiaryAuthState.loading
+  ) {
     console.log('⏳ Loading auth state...');
     return (
       <View style={styles.container}>

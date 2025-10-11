@@ -108,6 +108,7 @@ export default function WelcomeScreen() {
         alert(
           'Beneficiary dashboard coming soon! Thank you for your patience.'
         );
+        router.push('/beneficiary-login');
         break;
       default:
         alert('Please select a role first.');
