@@ -37,9 +37,16 @@ interface DonationCreateData {
   };
 }
 
+// ...existing code...
+
 interface DonationResponse {
   _id: string;
-  donorId: string;
+  donorId: string | {
+    _id: string;
+    name: string;
+    donorType: string;
+    businessName?: string;
+  };
   title: string;
   status: string;
   foodDetails: {
@@ -57,6 +64,10 @@ interface DonationResponse {
     city: string;
     state: string;
     zipCode: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
   };
   pickupSchedule: {
     urgency: string;
@@ -66,6 +77,7 @@ interface DonationResponse {
   updatedAt: string;
 }
 
+// ...existing code...
 interface PaginationResponse {
   total: number;
   page: number;

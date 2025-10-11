@@ -62,6 +62,18 @@ export default function NGOLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="donation-details"
+          options={{
+            href: null, // Hide from tab bar
+          }}
+        />
+        <Tabs.Screen
+          name="donation-accepted"
+          options={{
+            href: null, // Hide from tab bar
+          }}
+        />
       </Tabs>
     </ProtectedRoute>
   );

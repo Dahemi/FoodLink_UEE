@@ -27,10 +27,13 @@ router.post('/', authenticateDonor, async (req, res, next) => {
 // Get all available donations (NGOs can view)
 router.get('/', authenticateNGO, async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, type, category, urgency, location } = req.query;
+    console.log('Donations GET request received');
+    console.log('NGO user:', req.ngo?._id);
+    
+    const { page = 1, limit = 20, type, category, urgency, location, status = 'available' } = req.query;
     
     const query: any = { 
-      status: 'available',
+      status,
       expiryDateTime: { $gt: new Date() } // Only non-expired donations
     };
     
@@ -50,14 +53,21 @@ router.get('/', authenticateNGO, async (req, res, next) => {
       };
     }
     
+    console.log('Query:', JSON.stringify(query, null, 2));
+    
+    console.log('Query:', JSON.stringify(query, null, 2));
+    
     const donations = await DonationModel.find(query)
-      .populate('donorId', 'name donorType address phone')
+      .populate('donorId', 'name donorType businessName address phone') // Populate full donor info
       .sort({ createdAt: -1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
       .lean();
     
     const total = await DonationModel.countDocuments(query);
+    
+    console.log('Donations found:', donations.length);
+    console.log('Total count:', total);
     
     sendSuccess(res, {
       donations,
@@ -69,6 +79,7 @@ router.get('/', authenticateNGO, async (req, res, next) => {
       }
     }, 'Donations retrieved successfully');
   } catch (e) { 
+    console.error('Donation GET error:', e);
     next(e); 
   }
 });
@@ -77,8 +88,9 @@ router.get('/', authenticateNGO, async (req, res, next) => {
 router.get('/:id', authenticateAnyUser, async (req, res, next) => {
   try {
     const donation = await DonationModel.findById(req.params.id)
-      .populate('donorId', 'name donorType address phone')
-      .populate('claimedBy', 'name organizationType');
+      .populate('donorId', 'name donorType address phone businessName')
+      .populate('claimedBy', 'name organizationType')
+      .lean();
     
     if (!donation) {
       return sendNotFound(res, 'Donation not found');
@@ -92,7 +104,14 @@ router.get('/:id', authenticateAnyUser, async (req, res, next) => {
       return sendError(res, 'Access denied', 403);
     }
     
-    sendSuccess(res, donation.toJSON(), 'Donation retrieved successfully');
+    // Normalize images to array of strings
+    if (donation.images && Array.isArray(donation.images)) {
+      donation.images = donation.images.map((img: any) => 
+        typeof img === 'string' ? img : (img.url || img)
+      );
+    }
+    
+    sendSuccess(res, donation, 'Donation retrieved successfully');
   } catch (e) { 
     next(e); 
   }
@@ -171,14 +190,35 @@ router.post('/:id/interest', authenticateNGO, async (req, res, next) => {
     }
     
     // Check if NGO can claim this donation
-    if (!donation.canBeClaimedBy(req.ngo._id.toString(), req.ngo.stats.averageRating, req.ngo.isVerified)) {
+    const stats = req.ngo.stats || { averageRating: 0 };
+    if (!donation.canBeClaimedBy(req.ngo._id.toString(), stats.averageRating, req.ngo.isVerified)) {
       return sendError(res, 'You do not meet the requirements to claim this donation', 403);
     }
     
+    // Update donation status to 'claimed'
+    donation.status = 'claimed';
+    donation.claimedBy = req.ngo._id;
+    donation.claimedAt = new Date();
+    
+    // Add to interested NGOs list
     donation.addInterestedNGO(req.ngo._id.toString(), message);
+    
     await donation.save();
     
-    sendSuccess(res, null, 'Interest expressed successfully');
+    // Populate the donation for response
+    const populatedDonation = await DonationModel.findById(donation._id)
+      .populate('donorId', 'name donorType businessName phone')
+      .populate('claimedBy', 'name organizationType contactPerson phone')
+      .lean();
+    
+    // Normalize images to array of strings
+    if (populatedDonation && populatedDonation.images && Array.isArray(populatedDonation.images)) {
+      populatedDonation.images = populatedDonation.images.map((img: any) => 
+        typeof img === 'string' ? img : (img.url || img)
+      );
+    }
+    
+    sendSuccess(res, populatedDonation, 'Donation accepted successfully');
   } catch (e) { 
     next(e); 
   }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,17 @@ import {
   ScrollView,
   Dimensions,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Chip, FAB, Avatar, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useNGOAuth } from '../../context/NGOAuthContext';
+import { DonationApi } from '../../services/createDonation';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import { NGODonationApi } from '../../services/ngoDonationApi';
+
 
 const { width } = Dimensions.get('window');
 
@@ -32,11 +38,26 @@ interface Notification {
   read: boolean;
 }
 
+interface RecentDonation {
+  id: string;
+  title: string;
+  donorName: string;
+  quantity: string;
+  servings: number;
+  urgency: 'low' | 'medium' | 'high' | 'urgent';
+  expiryTime: string;
+  distance?: string;
+}
+
 export default function NGOHome() {
   const { authState } = useNGOAuth();
+  const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [recentDonations, setRecentDonations] = useState<RecentDonation[]>([]);
+  const [totalAvailableDonations, setTotalAvailableDonations] = useState(0);
 
-  // Dummy data for requirements
+  // Dummy data for requirements (keep for now)
   const [requirements] = useState<Requirement[]>([
     {
       id: '1',
@@ -64,7 +85,7 @@ export default function NGOHome() {
     },
   ]);
 
-  // Dummy data for notifications
+  // Dummy data for notifications (keep for now)
   const [notifications] = useState<Notification[]>([
     {
       id: '1',
@@ -92,20 +113,127 @@ export default function NGOHome() {
     },
   ]);
 
-  // Dummy stats
+  // Stats with real donation count
   const stats = {
     totalRequirements: 12,
     activeRequirements: 8,
     peopleHelped: 1250,
-    donationsReceived: 45,
+    donationsReceived: totalAvailableDonations,
     volunteersManaged: 15,
     impactScore: 950,
   };
 
+  // Fetch available donations
+  const fetchDonations = async () => {
+    try {
+      console.log('=== Starting donation fetch ===');
+      console.log('Auth state:', { 
+        isAuthenticated: authState.isAuthenticated,
+        hasUser: !!authState.user,
+        userName: authState.user?.name 
+      });
+
+      if (!NGODonationApi.isEnabled()) {
+        console.error('NGO Donation API not enabled - API_URL missing');
+        Alert.alert('Configuration Error', 'API URL is not configured. Please check your .env file.');
+        setLoading(false);
+        return;
+      }
+
+      console.log('Calling NGODonationApi.getAvailableDonations...');
+      const response = await NGODonationApi.getAvailableDonations({
+        status: 'available', // Only fetch available donations
+        limit: 5,
+        page: 1,
+      });
+
+      console.log('Donations fetched successfully:', {
+        count: response.donations.length,
+        total: response.pagination.total
+      });
+
+      // Filter out claimed donations (extra safety check)
+      const availableDonations = response.donations.filter(
+        donation => donation.status === 'available'
+      );
+
+      // Transform API response to match RecentDonation interface
+      const transformedDonations: RecentDonation[] = availableDonations.map((donation) => {
+        // Calculate time until expiry
+        const expiryDate = new Date(donation.expiryDateTime);
+        const now = new Date();
+        const diffMs = expiryDate.getTime() - now.getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffHours / 24);
+        
+        let expiryTime = '';
+        if (diffHours < 0) {
+          expiryTime = 'Expired';
+        } else if (diffHours < 24) {
+          expiryTime = `${diffHours}h`;
+        } else {
+          expiryTime = `${diffDays}d ${diffHours % 24}h`;
+        }
+
+        // Determine urgency based on expiry time
+        let urgency: 'low' | 'medium' | 'high' | 'urgent' = 'low';
+        if (diffHours < 0) {
+          urgency = 'low';
+        } else if (diffHours < 6) {
+          urgency = 'urgent';
+        } else if (diffHours < 12) {
+          urgency = 'high';
+        } else if (diffHours < 24) {
+          urgency = 'medium';
+        }
+
+        // Get donor name - handle both populated and non-populated donorId
+        let donorName = 'Donor';
+        if (typeof donation.donorId === 'object' && donation.donorId !== null) {
+          donorName = donation.donorId.businessName || donation.donorId.name || 'Donor';
+        }
+
+        return {
+          id: donation._id,
+          title: donation.title,
+          donorName: donorName,
+          quantity: donation.foodDetails.quantity,
+          servings: donation.foodDetails.estimatedServings,
+          urgency: urgency,
+          expiryTime: expiryTime,
+          distance: undefined, // Calculate distance if you have NGO location
+        };
+      });
+
+      setRecentDonations(transformedDonations);
+      setTotalAvailableDonations(response.pagination.total);
+      
+      console.log('=== Donation fetch completed successfully ===');
+    } catch (error) {
+      console.error('=== Error fetching donations ===');
+      console.error('Error details:', error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      
+      Alert.alert(
+        'Error Loading Donations',
+        'Failed to load donations. You may need to log out and log in again.',
+        [
+          { text: 'OK' }
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDonations();
+  }, []);
+
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => setRefreshing(false), 1500);
+    await fetchDonations();
+    setRefreshing(false);
   };
 
   const getUrgencyColor = (urgency: string) => {
@@ -167,7 +295,7 @@ export default function NGOHome() {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{stats.donationsReceived}</Text>
-          <Text style={styles.statLabel}>Donations Received</Text>
+          <Text style={styles.statLabel}>Available Donations</Text>
           <MaterialCommunityIcons name="gift" size={20} color="#2196F3" />
         </View>
         <View style={styles.statCard}>
@@ -187,7 +315,7 @@ export default function NGOHome() {
           View All
         </Button>
       </View>
-      {requirements.slice(0, 3).map((requirement) => (
+      {requirements.slice(0, 2).map((requirement) => (
         <Card key={requirement.id} style={styles.requirementCard}>
           <Card.Content>
             <View style={styles.requirementHeader}>
@@ -218,6 +346,72 @@ export default function NGOHome() {
           </Card.Content>
         </Card>
       ))}
+    </View>
+  );
+
+  const renderRecentDonations = () => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Available Donations</Text>
+        <Button mode="text" textColor="#FF8A50" onPress={() => router.push('/NGO/donations')}>
+          View All
+        </Button>
+      </View>
+      {recentDonations.length === 0 ? (
+        <Card style={styles.emptyCard}>
+          <Card.Content>
+            <MaterialCommunityIcons name="food-off" size={48} color="#CBD5E0" style={{ alignSelf: 'center', marginBottom: 8 }} />
+            <Text style={styles.emptyText}>No donations available at the moment</Text>
+            <Text style={styles.emptySubtext}>Check back later for new donations</Text>
+          </Card.Content>
+        </Card>
+      ) : (
+        recentDonations.map((donation) => (
+          <Card key={donation.id} style={styles.donationCard}>
+            <Card.Content>
+              <View style={styles.donationHeader}>
+                <Text style={styles.donationTitle}>{donation.title}</Text>
+                <Chip
+                  mode="flat"
+                  style={[styles.urgencyChip, { backgroundColor: `${getUrgencyColor(donation.urgency)}20` }]}
+                  textStyle={[styles.urgencyText, { color: getUrgencyColor(donation.urgency) }]}
+                >
+                  {donation.urgency.toUpperCase()}
+                </Chip>
+              </View>
+              <Text style={styles.donorText}>From: {donation.donorName}</Text>
+              <View style={styles.donationDetails}>
+                <View style={styles.detailItem}>
+                  <MaterialCommunityIcons name="food" size={16} color="#718096" />
+                  <Text style={styles.detailText}>{donation.quantity}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <MaterialCommunityIcons name="account-group" size={16} color="#718096" />
+                  <Text style={styles.detailText}>{donation.servings} servings</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <MaterialCommunityIcons name="clock" size={16} color="#718096" />
+                  <Text style={styles.detailText}>{donation.expiryTime}</Text>
+                </View>
+                {donation.distance && (
+                  <View style={styles.detailItem}>
+                    <MaterialCommunityIcons name="map-marker" size={16} color="#718096" />
+                    <Text style={styles.detailText}>{donation.distance}</Text>
+                  </View>
+                )}
+              </View>
+              <Button
+                mode="contained"
+                onPress={() => router.push(`/NGO/donation-details?id=${donation.id}`)}
+                style={styles.claimButton}
+                compact
+              >
+                View Details
+              </Button>
+            </Card.Content>
+          </Card>
+        ))
+      )}
     </View>
   );
 
@@ -283,6 +477,16 @@ export default function NGOHome() {
     </View>
   );
 
+  if (loading) {
+    return (
+      <LoadingSpinner 
+        message="Loading dashboard..." 
+        size="large" 
+        color="#FF8A50" 
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {renderHeader()}
@@ -296,6 +500,7 @@ export default function NGOHome() {
       >
         {renderQuickStats()}
         {renderActiveRequirements()}
+        {renderRecentDonations()}
         {renderRecentNotifications()}
         {renderQuickActions()}
         
@@ -373,17 +578,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 12,
   },
   statCard: {
-    width: (width - 60) / 2,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    width: (width - 56) / 2,
+    backgroundColor: '#F7FAFC',
     borderRadius: 12,
-    marginBottom: 12,
-    alignItems: 'center',
+    padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    elevation: 2,
   },
   statNumber: {
     fontSize: 24,
@@ -394,23 +597,20 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: '#718096',
-    textAlign: 'center',
     marginBottom: 8,
   },
   section: {
+    padding: 20,
     backgroundColor: '#FFFFFF',
     marginBottom: 8,
-    paddingVertical: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   requirementCard: {
-    marginHorizontal: 20,
     marginBottom: 12,
     elevation: 2,
   },
@@ -432,7 +632,7 @@ const styles = StyleSheet.create({
   },
   urgencyText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   requirementDetails: {
     flexDirection: 'row',
@@ -442,7 +642,7 @@ const styles = StyleSheet.create({
   },
   servingsText: {
     fontSize: 14,
-    color: '#4A5568',
+    color: '#718096',
   },
   statusChip: {
     height: 24,
@@ -453,11 +653,66 @@ const styles = StyleSheet.create({
   },
   timeText: {
     fontSize: 12,
+    color: '#A0AEC0',
+  },
+  donationCard: {
+    marginBottom: 12,
+    elevation: 2,
+  },
+  donationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  donationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    flex: 1,
+    marginRight: 8,
+  },
+  donorText: {
+    fontSize: 14,
+    color: '#718096',
+    marginBottom: 12,
+  },
+  donationDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 12,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailText: {
+    fontSize: 12,
     color: '#718096',
   },
+  claimButton: {
+    backgroundColor: '#FF8A50',
+  },
+  emptyCard: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#718096',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#A0AEC0',
+    textAlign: 'center',
+  },
   notificationCard: {
-    marginHorizontal: 20,
-    marginBottom: 8,
+    marginBottom: 12,
     elevation: 1,
   },
   unreadNotification: {
@@ -467,7 +722,7 @@ const styles = StyleSheet.create({
   notificationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 4,
   },
   notificationTitle: {
@@ -478,15 +733,13 @@ const styles = StyleSheet.create({
   },
   notificationTime: {
     fontSize: 12,
-    color: '#718096',
+    color: '#A0AEC0',
   },
   notificationMessage: {
     fontSize: 13,
-    color: '#4A5568',
-    lineHeight: 18,
+    color: '#718096',
   },
   actionGrid: {
-    paddingHorizontal: 20,
     gap: 12,
   },
   actionButton: {
