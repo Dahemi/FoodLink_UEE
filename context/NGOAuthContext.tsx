@@ -75,24 +75,60 @@ export const NGOAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const checkAuthState = async () => {
     try {
-      const token = await AsyncStorage.getItem('ngo_token');
-      const userData = await AsyncStorage.getItem('ngo_user');
+      const tokenStr = await AsyncStorage.getItem('ngoAuthToken');
+      const userData = await AsyncStorage.getItem('ngoUser');
 
-      if (token && userData) {
+      console.log('NGOAuth: Checking auth state:', { 
+        hasToken: !!tokenStr, 
+        hasUser: !!userData 
+      });
+
+      if (tokenStr && userData) {
+        const tokenData = JSON.parse(tokenStr);
         const user = JSON.parse(userData);
-        setAuthState({
-          isAuthenticated: true,
-          user,
-          loading: false,
-          error: null,
-        });
+        
+        // Check if token is expired
+        if (tokenData.expiresAt && Date.now() < tokenData.expiresAt) {
+          setAuthState({
+            isAuthenticated: true,
+            user,
+            loading: false,
+            error: null,
+          });
+        } else {
+          console.log('NGOAuth: Token expired, logging out');
+          await logout();
+        }
       } else {
-        setAuthState({
-          isAuthenticated: false,
-          user: null,
-          loading: false,
-          error: null,
-        });
+        // Try legacy keys
+        const legacyToken = await AsyncStorage.getItem('ngo_token');
+        const legacyUserData = await AsyncStorage.getItem('ngo_user');
+        
+        if (legacyToken && legacyUserData) {
+          console.log('NGOAuth: Found legacy tokens, migrating...');
+          const user = JSON.parse(legacyUserData);
+          
+          // Migrate to new format
+          await AsyncStorage.setItem('ngoAuthToken', JSON.stringify({
+            accessToken: legacyToken,
+            expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+          }));
+          await AsyncStorage.setItem('ngoUser', legacyUserData);
+          
+          setAuthState({
+            isAuthenticated: true,
+            user,
+            loading: false,
+            error: null,
+          });
+        } else {
+          setAuthState({
+            isAuthenticated: false,
+            user: null,
+            loading: false,
+            error: null,
+          });
+        }
       }
     } catch (error) {
       console.error('Auth state check error:', error);
@@ -137,6 +173,15 @@ export const NGOAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw new Error('Invalid response from server');
       }
 
+      // Store with consistent keys for NGO Donation API
+      await AsyncStorage.setItem('ngoAuthToken', JSON.stringify({
+        accessToken: token,
+        refreshToken: refreshToken,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
+      }));
+      await AsyncStorage.setItem('ngoUser', JSON.stringify(userData));
+      
+      // Keep legacy keys for backward compatibility
       await AsyncStorage.setItem('ngo_token', token);
       if (refreshToken) {
         await AsyncStorage.setItem('ngo_refresh_token', refreshToken);
@@ -144,6 +189,7 @@ export const NGOAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await AsyncStorage.setItem('ngo_user', JSON.stringify(userData));
 
       console.log('NGOAuth: Setting auth state with user:', userData.name); // Debug log
+      console.log('NGOAuth: Token stored successfully'); // Debug log
 
       setAuthState({
         isAuthenticated: true,
@@ -180,6 +226,14 @@ export const NGOAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw new Error(data.message || 'Registration failed');
       }
 
+      await AsyncStorage.setItem('ngoAuthToken', JSON.stringify({
+        accessToken: token,
+        refreshToken: refreshToken,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours from now
+      }));
+      await AsyncStorage.setItem('ngoUser', JSON.stringify(userData));
+      
+      // Keep legacy keys for backward compatibility
       await AsyncStorage.setItem('ngo_token', data.data.token);
       await AsyncStorage.setItem('ngo_refresh_token', data.data.refreshToken);
       await AsyncStorage.setItem('ngo_user', JSON.stringify(data.data.user));
@@ -216,7 +270,14 @@ export const NGOAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (error) {
       console.error('Logout request error:', error);
     } finally {
-      await AsyncStorage.multiRemove(['ngo_token', 'ngo_refresh_token', 'ngo_user']);
+      // Clear both new and legacy keys
+      await AsyncStorage.multiRemove([
+        'ngoAuthToken', 
+        'ngoUser',
+        'ngo_token', 
+        'ngo_refresh_token', 
+        'ngo_user'
+      ]);
       
       setAuthState({
         isAuthenticated: false,
