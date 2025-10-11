@@ -46,7 +46,7 @@ export default function BeneficiaryDashboard() {
         break;
       case 'map':
         setActiveTab('map');
-        router.push('/beneficiary/map');
+        router.push('/beneficiary/map'); // This line handles the navigation
         break;
       case 'alerts':
         setActiveTab('alerts');

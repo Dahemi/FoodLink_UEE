@@ -28,7 +28,7 @@ export default function BeneficiaryLayout() {
         <Stack.Screen 
           name="map" 
           options={{ 
-            title: 'Map',
+            title: 'FoodFinderMap',
             headerShown: false,
           }} 
         />
