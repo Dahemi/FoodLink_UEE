@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { useNGOAuth } from '../context/NGOAuthContext';
 import { useRole } from '../context/RoleContext';
 import LoadingSpinner from './LoadingSpinner';
 import { useRouter } from 'expo-router';
@@ -18,21 +19,33 @@ export default function ProtectedRoute({
   requireRole, 
   fallbackRoute = '/volunteer-login' 
 }: ProtectedRouteProps) {
-  const { authState } = useAuth();
+  const volunteerAuth = useAuth();
+  const ngoAuth = useNGOAuth();
   const { selectedRole } = useRole();
   const router = useRouter();
+
+  // Choose the appropriate auth context based on the required role
+  const authState = requireRole === 'ngo' ? ngoAuth.authState : volunteerAuth.authState;
 
   // Handle navigation in useEffect to avoid setState during render
   useEffect(() => {
     if (!authState.loading) {
       // Check authentication requirement
       if (requireAuth && !authState.isAuthenticated) {
-        router.replace(fallbackRoute);
+        console.log('ProtectedRoute: Not authenticated, redirecting to:', fallbackRoute);
+        
+        // Redirect to appropriate login based on role
+        if (requireRole === 'ngo') {
+          router.replace('/ngo-login');
+        } else {
+          router.replace(fallbackRoute);
+        }
         return;
       }
 
       // Check role requirement
       if (requireRole && selectedRole !== requireRole) {
+        console.log('ProtectedRoute: Wrong role, redirecting to role selection');
         router.replace('/role-selection');
         return;
       }

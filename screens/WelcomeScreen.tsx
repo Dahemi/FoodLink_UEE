@@ -101,8 +101,7 @@ export default function WelcomeScreen() {
         alert('Donor dashboard coming soon! Thank you for your patience.');
         break;
       case 'ngo':
-        // Future: router.push('/ngo/dashboard');
-        alert('NGO dashboard coming soon! Thank you for your patience.');
+        router.push('/ngo-login'); // Add this line
         break;
       case 'beneficiary':
         // Future: router.push('/beneficiary/dashboard');

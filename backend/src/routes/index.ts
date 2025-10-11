@@ -7,6 +7,8 @@ import ngoAuthRoutes from './ngoAuthRoutes.js';
 import beneficiaryAuthRoutes from './beneficiaryAuthRoutes.js';
 import volunteerTaskRoutes from './volunteerTaskRoutes.js';
 import donationRoutes from './donationRoutes.js';
+import ngoRequirementRoutes from './ngoRequirementRoutes.js';
+import fileUploadRoutes from './fileUploadRoutes.js';
 
 const router = Router();
 
@@ -29,6 +31,12 @@ router.use('/auth/beneficiary', beneficiaryAuthRoutes);
 // Feature routes
 router.use('/donations', donationRoutes);
 router.use('/volunteer', volunteerTaskRoutes); // Legacy volunteer task routes
+
+// Feature routes
+router.use('/donations', donationRoutes);
+router.use('/volunteer', volunteerTaskRoutes);
+router.use('/ngo-requirements', ngoRequirementRoutes);
+router.use('/upload', fileUploadRoutes);
 
 // API info endpoint
 router.get('/info', (_req, res) => {
