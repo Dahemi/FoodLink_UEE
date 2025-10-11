@@ -12,25 +12,28 @@ export default function DonorLayout() {
     >
       <Stack
         screenOptions={{
-          headerStyle: {
-            backgroundColor: '#FF8A50',
-          },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: {
-            fontWeight: '600',
-          },
-          contentStyle: { backgroundColor: '#FFFFFF' },
+          headerShown: false,
+          contentStyle: { backgroundColor: '#FFF8F0' },
         }}
       >
+        <Stack.Screen name="dashboard" />
+        <Stack.Screen name="home" />
         <Stack.Screen
-          name="dashboard"
+          name="create-donation"
           options={{
-            title: 'Donor Dashboard',
-            headerShown: true,
+            presentation: 'modal',
+            title: 'New Donation',
           }}
         />
+        <Stack.Screen name="recurring" />
+        <Stack.Screen name="history" />
+        <Stack.Screen name="receipts" />
+        <Stack.Screen name="badges" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="urgent-donation" />
+        <Stack.Screen name="stories/[id]" />
       </Stack>
-      <StatusBar style="light" backgroundColor="#FF8A50" />
+      <StatusBar style="dark" backgroundColor="#FFF8F0" />
     </ProtectedRoute>
   );
 }

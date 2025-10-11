@@ -6,6 +6,7 @@ import { config, validateEnvironment } from './config/environment.js';
 import { connectDatabase, setupGracefulShutdown } from './config/database.js';
 import apiRoutes from './routes/index.js';
 import donorAuthRoutes from './routes/donorAuthRoutes.js';
+import donationRoutes from './routes/donationRoutes.js';
 
 // Validate environment variables
 validateEnvironment();
@@ -36,6 +37,7 @@ if (config.NODE_ENV === 'development') {
 app.use('/api', apiRoutes);
 //app.use('/api/auth/volunteer', volunteerAuthRoutes);
 app.use('/api/auth/donor', donorAuthRoutes);
+app.use('/api/donations', donationRoutes);
 
 // Global error handler
 app.use(

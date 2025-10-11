@@ -1,49 +1,30 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Button } from 'react-native-paper';
+import React, { useEffect } from 'react';
 import { useRouter } from 'expo-router';
-import { useDonorAuth } from '../../context/DonorAuthContext';
+import { View, ActivityIndicator } from 'react-native';
 
 export default function DonorDashboard() {
   const router = useRouter();
-  const { authState, logout } = useDonorAuth();
 
-  const handleLogout = async () => {
-    await logout();
-    router.replace('/role-selection');
-  };
+  useEffect(() => {
+    console.log('📍 DonorDashboard: Redirecting to home');
+    // Use replace to avoid back navigation issues
+    const timer = setTimeout(() => {
+      router.replace('/donor/home');
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome, {authState.user?.name}!</Text>
-      <Text style={styles.subtitle}>Donor Dashboard Coming Soon</Text>
-      <Button mode="contained" onPress={handleLogout} style={styles.button}>
-        Logout
-      </Button>
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#FFF8F0',
+      }}
+    >
+      <ActivityIndicator size="large" color="#FF8A50" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#F7FAFC',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#718096',
-    marginBottom: 32,
-  },
-  button: {
-    backgroundColor: '#FF8A50',
-  },
-});

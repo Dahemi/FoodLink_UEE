@@ -241,7 +241,7 @@ export const DonorAuthProvider: React.FC<DonorAuthProviderProps> = ({
 
 export const useDonorAuth = (): DonorAuthContextType => {
   const context = useContext(DonorAuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useDonorAuth must be used within DonorAuthProvider');
   }
   return context;
