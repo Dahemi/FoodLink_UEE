@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { TextInput, Button, Card, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../context/AuthContext';
+import { useBeneficiaryAuth } from '../context/BeneficiaryAuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { BeneficiaryAuthApi } from '../services/beneficiaryAuthApi';
 import { BeneficiaryRegisterData } from '../types/beneficiaryAuth';
@@ -22,7 +22,7 @@ const { width } = Dimensions.get('window');
 
 export default function BeneficiaryLoginScreen() {
   const router = useRouter();
-  const { login, register, authState } = useAuth();
+  const { login, register, authState } = useBeneficiaryAuth(); // Use the new context
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     email: '',
@@ -70,67 +70,52 @@ export default function BeneficiaryLoginScreen() {
   };
 
   const handleSubmit = async () => {
-    try {
-      if (isLogin) {
-        const response = await fetch('http://192.168.8.101:4000/api/auth/beneficiary/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-          }),
-        });
+  if (!formData.email || !formData.password) {
+    Alert.alert('Error', 'Please fill in all required fields');
+    return;
+  }
 
-        if (!response.ok) {
-          throw new Error('Login failed');
-        }
-
-        const data = await response.json();
-        console.log('Login successful:', data);
-
-        // Store auth data in context
-        await login({
-          email: formData.email,
-          password: formData.password
-        });
-        
-        // Then navigate
-        router.replace('/beneficiary/dashboard');
-      } else {
-        // Registration flow remains the same
-        const registerData: BeneficiaryRegisterData = {
-          email: formData.email,
-          password: formData.password,
-          name: formData.name,
-          phone: formData.phone,
-          address: {
-            street: formData.address.street,
-            city: formData.address.city,
-            state: formData.address.state,
-            zipCode: formData.address.zipCode,
-            country: formData.address.country || 'Sri Lanka',
-            coordinates: {
-              latitude: formData.address.coordinates.latitude || 6.9271,
-              longitude: formData.address.coordinates.longitude || 79.8612,
-            }
-          },
-          householdSize: formData.householdSize,
-          dietaryRestrictions: formData.dietaryRestrictions,
-          emergencyContact: formData.emergencyContact
-        };
-        
-        await BeneficiaryAuthApi.register(registerData);
-        router.replace('/beneficiary/dashboard');
-      }
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        error instanceof Error ? error.message : 'Authentication failed'
-      );
+  try {
+    if (isLogin) {
+      // Use context login only
+      await login({
+        email: formData.email,
+        password: formData.password
+      });
+      router.replace('/beneficiary/dashboard');
+    } else {
+      // Registration flow remains the same
+      const registerData: BeneficiaryRegisterData = {
+        email: formData.email,
+        password: formData.password,
+        name: formData.name,
+        phone: formData.phone,
+        address: {
+          street: formData.address.street,
+          city: formData.address.city,
+          state: formData.address.state,
+          zipCode: formData.address.zipCode,
+          country: formData.address.country || 'Sri Lanka',
+          coordinates: {
+            latitude: 6.9271, // Default to Colombo
+            longitude: 79.8612
+          }
+        },
+        householdSize: formData.householdSize,
+        dietaryRestrictions: formData.dietaryRestrictions,
+        emergencyContact: formData.emergencyContact
+      };
+      
+      await register(registerData);
+      router.replace('/beneficiary/dashboard');
     }
-  };
+  } catch (error) {
+    Alert.alert(
+      'Error',
+      error instanceof Error ? error.message : 'Authentication failed'
+    );
+  }
+};
 
   return (
     <KeyboardAvoidingView

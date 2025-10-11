@@ -9,9 +9,8 @@ interface AuthResponse {
   user: BeneficiaryUser;
 }
 
-function getBaseUrl(): string | null {
-  if (!API_URL || API_URL.trim() === '') return null;
-  return API_URL.replace(/\/$/, '');
+function getBaseUrl(): string {
+  return process.env.EXPO_PUBLIC_API_URL || 'http://172.28.27.15:4000';
 }
 
 async function http<T>(path: string, options?: RequestInit): Promise<T> {
