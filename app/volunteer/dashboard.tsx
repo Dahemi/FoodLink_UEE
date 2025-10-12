@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useVolunteerTasks } from '../../hooks/useVolunteerTasks';
 import { useVolunteerNotifications } from '../../hooks/useVolunteerNotifications';
 import { useAuth } from '../../context/AuthContext';
+import { VolunteerApi } from '../../services/volunteerApi';
 import TaskList from '../../components/volunteer/TaskList';
 import StatsCard from '../../components/volunteer/StatsCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -141,6 +142,34 @@ export default function VolunteerDashboard() {
               Alert.alert('Task Cancelled', 'The task has been cancelled.');
             } catch (error) {
               Alert.alert('Error', 'Failed to cancel task. Please try again.');
+            }
+          }
+        },
+      ]
+    );
+  };
+
+  const handleAcceptDonation = async (donationId: string) => {
+    Alert.alert(
+      'Accept Pickup',
+      'Are you ready to pick up this donation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Accept', 
+          onPress: async () => {
+            try {
+              if (VolunteerApi.isEnabled()) {
+                await VolunteerApi.acceptDonation(donationId);
+                Alert.alert('Success', 'Pickup accepted! The task has been added to your dashboard.');
+                // Refresh the tasks to show the new task
+                await refreshTasks();
+              } else {
+                Alert.alert('Success', 'Pickup accepted! You will be contacted with pickup details.');
+              }
+            } catch (error) {
+              console.error('Error accepting donation:', error);
+              Alert.alert('Error', 'Failed to accept pickup. Please try again.');
             }
           }
         },
@@ -405,10 +434,7 @@ export default function VolunteerDashboard() {
             onStartTask={handleStartTask}
             onCompleteTask={handleCompleteTask}
             onCancelTask={handleCancelTask}
-            onAcceptDonation={(donationId) => {
-              // Handle accepting a donation - could create a volunteer task
-              console.log('Accept donation:', donationId);
-            }}
+            onAcceptDonation={handleAcceptDonation}
             emptyMessage={getEmptyMessage()}
             emptyIcon={getEmptyIcon()}
           />

@@ -101,6 +101,13 @@ export const VolunteerApi = {
     // The backend returns { success: true, data: { donations: [], pagination: {} } }
     return response.data || response;
   },
+
+  async acceptDonation(donationId: string): Promise<any> {
+    return await httpWithAuth<any>('/api/volunteer/accept-donation', {
+      method: 'POST',
+      body: JSON.stringify({ donationId }),
+    });
+  },
 };
 
 
