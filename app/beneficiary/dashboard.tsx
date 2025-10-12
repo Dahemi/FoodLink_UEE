@@ -10,10 +10,10 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Chip, Searchbar, IconButton } from 'react-native-paper';
+import { Card, Chip, Searchbar, IconButton, Avatar } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuth } from '../../context/AuthContext';
+import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
 const { width } = Dimensions.get('window');
@@ -56,7 +56,7 @@ function haversineDistance(a: { latitude: number; longitude: number }, b: { lati
 
 export default function BeneficiaryDashboard() {
   const router = useRouter();
-  const { authState } = useAuth();
+  const { authState } = useBeneficiaryAuth();
   const [foodPoints, setFoodPoints] = useState<FoodPoint[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,6 +64,41 @@ export default function BeneficiaryDashboard() {
   const [activeTab, setActiveTab] = useState('home');
 
   const userCoords = authState.user?.address?.coordinates ?? { latitude: 6.9271, longitude: 79.8612 };
+
+  const getInitials = (name?: string) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerRow}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        <Avatar.Text
+          size={48}
+          label={getInitials(authState.user?.name)}
+          style={styles.avatar}
+        />
+        <View style={styles.headerInfo}>
+          <Text style={styles.greeting}>Hello, {authState.user?.name?.split(' ')[0] || 'Member'}! 👋</Text>
+          <Text style={styles.location}>📍 {authState.user?.address?.city ?? 'Colombo'}</Text>
+        </View>
+      </View>
+
+      <View style={styles.headerRight}>
+        <IconButton
+          icon="map-marker"
+          size={22}
+          iconColor="#2D3748"
+          onPress={() => router.push('/beneficiary/map')}
+        />
+      </View>
+    </View>
+  );
 
   useEffect(() => {
     loadFoodPoints();
@@ -217,22 +252,13 @@ export default function BeneficiaryDashboard() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) {
+    return <LoadingSpinner message="Loading map..." />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.headerRow}>
-        <Text style={styles.title}>Food Distributions</Text>
-        <IconButton icon="filter-variant" size={22} onPress={() => Alert.alert('Filter', 'Filter not implemented yet')} />
-      </View>
-
-      <Searchbar
-        placeholder="Search food points"
-        value={query}
-        onChangeText={setQuery}
-        style={styles.search}
-      />
-
+      {renderHeader()}
       <ScrollView
         contentContainerStyle={styles.listContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -291,4 +317,24 @@ const styles = StyleSheet.create({
   chipText: { color: '#2D3748', fontSize: 12 },
   empty: { padding: 40, alignItems: 'center' },
   emptyText: { color: '#718096' },
+  avatar: {
+    backgroundColor: '#FF8A50',
+  },
+  headerInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2D3748',
+  },
+  location: {
+    fontSize: 12,
+    color: '#718096',
+    marginTop: 2,
+  },
+  headerRight: {
+    marginLeft: 8,
+  },
 });

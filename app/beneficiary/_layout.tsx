@@ -10,6 +10,8 @@ export default function BeneficiaryLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          // Add small top gap for all beneficiary screens
+          contentStyle: { paddingTop: 12 },
           tabBarActiveTintColor: '#FF8A50',
           tabBarInactiveTintColor: '#718096',
           tabBarStyle: {
