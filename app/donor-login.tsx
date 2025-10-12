@@ -26,7 +26,17 @@ export default function DonorLoginScreen() {
     password: '',
     name: '',
     phone: '',
-    address: '',
+    address: {
+      street: '',
+      city: 'Colombo',
+      state: 'Western Province',
+      zipCode: '',
+      country: 'Sri Lanka',
+      coordinates: {
+        latitude: 6.9271,
+        longitude: 79.8612
+      }
+    },
     donorType: 'individual' as
       | 'individual'
       | 'restaurant'
@@ -61,7 +71,7 @@ export default function DonorLoginScreen() {
       return;
     }
 
-    if (!isLogin && (!formData.name || !formData.phone || !formData.address)) {
+    if (!isLogin && (!formData.name || !formData.phone || !formData.address.street)) {
       Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
@@ -80,7 +90,7 @@ export default function DonorLoginScreen() {
           password: formData.password,
           name: formData.name,
           phone: formData.phone,
-          address: formData.address, // Send as string, backend will parse it
+          address: formData.address,
           donorType: formData.donorType,
           businessName: formData.businessName,
           averageDonationFrequency: formData.averageDonationFrequency,
@@ -202,14 +212,56 @@ export default function DonorLoginScreen() {
                 />
 
                 <TextInput
-                  label="Address"
-                  value={formData.address}
+                  label="Street Address"
+                  value={formData.address.street}
                   onChangeText={(text) =>
-                    setFormData((prev) => ({ ...prev, address: text }))
+                    setFormData((prev) => ({ 
+                      ...prev, 
+                      address: { ...prev.address, street: text } 
+                    }))
                   }
                   mode="outlined"
-                  multiline
-                  numberOfLines={2}
+                  style={styles.input}
+                />
+
+                <View style={styles.addressRow}>
+                  <TextInput
+                    label="City"
+                    value={formData.address.city}
+                    onChangeText={(text) =>
+                      setFormData((prev) => ({ 
+                        ...prev, 
+                        address: { ...prev.address, city: text } 
+                      }))
+                    }
+                    mode="outlined"
+                    style={[styles.input, { flex: 1, marginRight: 8 }]}
+                  />
+                  <TextInput
+                    label="State/Province"
+                    value={formData.address.state}
+                    onChangeText={(text) =>
+                      setFormData((prev) => ({ 
+                        ...prev, 
+                        address: { ...prev.address, state: text } 
+                      }))
+                    }
+                    mode="outlined"
+                    style={[styles.input, { flex: 1 }]}
+                  />
+                </View>
+
+                <TextInput
+                  label="ZIP Code"
+                  value={formData.address.zipCode}
+                  onChangeText={(text) =>
+                    setFormData((prev) => ({ 
+                      ...prev, 
+                      address: { ...prev.address, zipCode: text } 
+                    }))
+                  }
+                  mode="outlined"
+                  keyboardType="numeric"
                   style={styles.input}
                 />
 
@@ -577,5 +629,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FF8A50',
     fontWeight: '600',
+  },
+  addressRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
   },
 });

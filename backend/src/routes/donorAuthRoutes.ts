@@ -17,12 +17,25 @@ const loginSchema = z.object({
   password: z.string().min(6),
 });
 
+// Address validation schema
+const addressSchema = z.object({
+  street: z.string().min(1, 'Street is required'),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  zipCode: z.string().min(1, 'ZIP code is required'),
+  country: z.string().default('Sri Lanka'),
+  coordinates: z.object({
+    latitude: z.number(),
+    longitude: z.number()
+  }).optional()
+});
+
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   name: z.string().min(2),
   phone: z.string().min(10),
-  address: z.string().min(10),
+  address: addressSchema,
   donorType: z.enum([
     'individual',
     'restaurant',
@@ -43,7 +56,7 @@ const registerSchema = z.object({
 const updateProfileSchema = z.object({
   name: z.string().min(2).optional(),
   phone: z.string().min(10).optional(),
-  address: z.string().min(10).optional(),
+  address: addressSchema.optional(),
   donorType: z
     .enum([
       'individual',
@@ -78,9 +91,25 @@ const generateTokens = (donorId: string) => {
   return { accessToken, refreshToken };
 };
 
-// Helper to parse address string into structured format
-function parseAddress(addressStr: string) {
-  const parts = addressStr.split(',').map((s) => s.trim());
+// Helper to parse address string into structured format (for backward compatibility)
+function parseAddress(addressStr: string | any) {
+  // If already an object, return it with defaults
+  if (typeof addressStr === 'object' && addressStr !== null) {
+    return {
+      street: addressStr.street || '',
+      city: addressStr.city || 'Colombo',
+      state: addressStr.state || 'Western Province',
+      zipCode: addressStr.zipCode || '00000',
+      country: addressStr.country || 'Sri Lanka',
+      coordinates: addressStr.coordinates || {
+        latitude: 6.9271,
+        longitude: 79.8612,
+      },
+    };
+  }
+  
+  // If string, parse it
+  const parts = addressStr.split(',').map((s: string) => s.trim());
   return {
     street: parts[0] || addressStr,
     city: parts[1] || 'Colombo',
@@ -176,12 +205,17 @@ router.post('/register', async (req, res, next) => {
         .json({ message: 'Donor with this email already exists' });
     }
 
-    // Parse address
-    const addressData = parseAddress(data.address);
-
+    // Address is already validated and in correct format
     const donor = new DonorModel({
       ...data,
-      address: addressData,
+      // Ensure coordinates are set if not provided
+      address: {
+        ...data.address,
+        coordinates: data.address.coordinates || {
+          latitude: 6.9271,
+          longitude: 79.8612,
+        },
+      },
     });
     await donor.save();
 
@@ -246,14 +280,9 @@ router.patch('/profile', authenticateToken, async (req, res, next) => {
       return res.status(401).json({ message: 'No authenticated user' });
     }
 
-    // Update address if provided
-    if (data.address) {
-      donor.address = parseAddress(data.address);
-    }
-
-    // Update other fields
+    // Update fields
     Object.keys(data).forEach((key) => {
-      if (key !== 'address' && data[key as keyof typeof data] !== undefined) {
+      if (data[key as keyof typeof data] !== undefined) {
         (donor as any)[key] = data[key as keyof typeof data];
       }
     });
