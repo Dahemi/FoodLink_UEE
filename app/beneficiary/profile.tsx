@@ -15,14 +15,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { FoodPointReminderService } from '../../services/foodPointReminderService';
-import { useAuth } from '../../context/AuthContext';
+import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
 import { profileStyles } from '../../styles/beneficiary/profileStyles';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function BeneficiaryProfile() {
   const router = useRouter();
   const params = useLocalSearchParams<{ open?: string; id?: string; name?: string; address?: string }>();
-  const { authState, logout } = useAuth();
+  const { authState, logout } = useBeneficiaryAuth();
   const [activeTab, setActiveTab] = useState('profile');
 
   const [showRemindersModal, setShowRemindersModal] = useState(false);
@@ -117,86 +117,98 @@ export default function BeneficiaryProfile() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.content} contentContainerStyle={{ paddingTop: 8 }}>
-        {/* Profile Header */}
-        <View style={styles.header}>
-          <Avatar.Text 
-            size={80} 
-            label={authState.user?.name?.substring(0, 2).toUpperCase() || 'B'} 
-            style={styles.avatar}
-          />
-          <Text style={styles.name}>{authState.user?.name}</Text>
-          <Text style={styles.email}>{authState.user?.email}</Text>
+      {/* Top header with logged-in user's name */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EEF2F7' }}>
+        <IconButton icon="arrow-left" size={24} onPress={() => router.back()} />
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Profile</Text>
+          <Text style={{ fontSize: 12, color: '#718096', marginTop: 2 }}>
+            {authState.user?.name ?? ''}
+          </Text>
         </View>
+        <View style={{ width: 40 }} />
+      </View>
+       
+       <ScrollView style={styles.content} contentContainerStyle={{ paddingTop: 8 }}>
+         {/* Profile Header */}
+         <View style={styles.header}>
+           <Avatar.Text 
+             size={80} 
+             label={authState.user?.name?.substring(0, 2).toUpperCase() || 'B'} 
+             style={styles.avatar}
+           />
+           <Text style={styles.name}>{authState.user?.name}</Text>
+           <Text style={styles.email}>{authState.user?.email}</Text>
+         </View>
 
-        {/* Impact Metrics */}
-        <View style={styles.metricsContainer}>
-          <Text style={styles.sectionTitle}>Impact Metrics</Text>
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>15</Text>
-              <Text style={styles.metricLabel}>Donations Made</Text>
-            </View>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>200</Text>
-              <Text style={styles.metricLabel}>Meals Served</Text>
-            </View>
-          </View>
-        </View>
+         {/* Impact Metrics */}
+         <View style={styles.metricsContainer}>
+           <Text style={styles.sectionTitle}>Impact Metrics</Text>
+           <View style={styles.metricsGrid}>
+             <View style={styles.metricItem}>
+               <Text style={styles.metricValue}>15</Text>
+               <Text style={styles.metricLabel}>Donations Made</Text>
+             </View>
+             <View style={styles.metricItem}>
+               <Text style={styles.metricValue}>200</Text>
+               <Text style={styles.metricLabel}>Meals Served</Text>
+             </View>
+           </View>
+         </View>
 
-        {/* Settings List */}
-        <View style={styles.settingsContainer}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          
-          <TouchableOpacity style={styles.settingItem} onPress={() => openReminders()}>
-            <View style={styles.settingLeft}>
-              <MaterialCommunityIcons name="bell-outline" size={24} color="#4A5568" />
-              <Text style={styles.settingText}>My Reminders</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-          </TouchableOpacity>
-          
-          <Divider style={styles.divider} />
-          
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <MaterialCommunityIcons name="history" size={24} color="#4A5568" />
-              <Text style={styles.settingText}>Pickup History</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-          </TouchableOpacity>
-          
-          <Divider style={styles.divider} />
-          
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <MaterialCommunityIcons name="account-edit-outline" size={24} color="#4A5568" />
-              <Text style={styles.settingText}>Edit Profile</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-          </TouchableOpacity>
-          
-          <Divider style={styles.divider} />
-          
-          <TouchableOpacity style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <MaterialCommunityIcons name="bell-ring-outline" size={24} color="#4A5568" />
-              <Text style={styles.settingText}>Notification Settings</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-          </TouchableOpacity>
-          
-          <Divider style={styles.divider} />
-          
-          <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
-            <View style={styles.settingLeft}>
-              <MaterialCommunityIcons name="logout" size={24} color="#F56565" />
-              <Text style={[styles.settingText, styles.logoutText]}>Logout</Text>
-            </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+         {/* Settings List */}
+         <View style={styles.settingsContainer}>
+           <Text style={styles.sectionTitle}>Settings</Text>
+           
+           <TouchableOpacity style={styles.settingItem} onPress={() => openReminders()}>
+             <View style={styles.settingLeft}>
+               <MaterialCommunityIcons name="bell-outline" size={24} color="#4A5568" />
+               <Text style={styles.settingText}>My Reminders</Text>
+             </View>
+             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
+           </TouchableOpacity>
+           
+           <Divider style={styles.divider} />
+           
+           <TouchableOpacity style={styles.settingItem}>
+             <View style={styles.settingLeft}>
+               <MaterialCommunityIcons name="history" size={24} color="#4A5568" />
+               <Text style={styles.settingText}>Pickup History</Text>
+             </View>
+             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
+           </TouchableOpacity>
+           
+           <Divider style={styles.divider} />
+           
+           <TouchableOpacity style={styles.settingItem}>
+             <View style={styles.settingLeft}>
+               <MaterialCommunityIcons name="account-edit-outline" size={24} color="#4A5568" />
+               <Text style={styles.settingText}>Edit Profile</Text>
+             </View>
+             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
+           </TouchableOpacity>
+           
+           <Divider style={styles.divider} />
+           
+           <TouchableOpacity style={styles.settingItem}>
+             <View style={styles.settingLeft}>
+               <MaterialCommunityIcons name="bell-ring-outline" size={24} color="#4A5568" />
+               <Text style={styles.settingText}>Notification Settings</Text>
+             </View>
+             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
+           </TouchableOpacity>
+           
+           <Divider style={styles.divider} />
+           
+           <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
+             <View style={styles.settingLeft}>
+               <MaterialCommunityIcons name="logout" size={24} color="#F56565" />
+               <Text style={[styles.settingText, styles.logoutText]}>Logout</Text>
+             </View>
+             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
+           </TouchableOpacity>
+         </View>
+       </ScrollView>
 
       {/* Reminders modal */}
       <Modal visible={showRemindersModal} animationType="slide" onRequestClose={() => setShowRemindersModal(false)}>
