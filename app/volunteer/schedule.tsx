@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Card, Button, Chip, Calendar } from 'react-native-paper';
+import { Card, Button, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useVolunteerTasks } from '../../hooks/useVolunteerTasks';
 import TaskCard from '../../components/volunteer/TaskCard';
@@ -150,28 +150,77 @@ export default function ScheduleScreen() {
           </Text>
         </View>
 
-        {/* Calendar */}
+        {/* Date Selector */}
         <Card style={styles.calendarCard}>
           <View style={styles.cardContent}>
-            <Calendar
-              onDayPress={(day) => setSelectedDate(day.dateString)}
-              markedDates={markedDates}
-              theme={{
-                selectedDayBackgroundColor: '#FF8A50',
-                selectedDayTextColor: '#FFFFFF',
-                todayTextColor: '#FF8A50',
-                dayTextColor: '#2D3748',
-                textDisabledColor: '#CBD5E0',
-                dotColor: '#FF8A50',
-                selectedDotColor: '#FFFFFF',
-                arrowColor: '#FF8A50',
-                monthTextColor: '#2D3748',
-                indicatorColor: '#FF8A50',
-                textDayFontWeight: '500',
-                textMonthFontWeight: '600',
-                textDayHeaderFontWeight: '600',
-              }}
-            />
+            <Text style={styles.calendarTitle}>Select Date</Text>
+            <View style={styles.dateSelector}>
+              <Button
+                mode="outlined"
+                onPress={() => {
+                  const today = new Date();
+                  const yesterday = new Date(today);
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  setSelectedDate(yesterday.toISOString().split('T')[0]);
+                }}
+                style={styles.dateButton}
+              >
+                Yesterday
+              </Button>
+              <Button
+                mode="contained"
+                onPress={() => {
+                  const today = new Date();
+                  setSelectedDate(today.toISOString().split('T')[0]);
+                }}
+                style={[styles.dateButton, styles.todayButton]}
+              >
+                Today
+              </Button>
+              <Button
+                mode="outlined"
+                onPress={() => {
+                  const today = new Date();
+                  const tomorrow = new Date(today);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  setSelectedDate(tomorrow.toISOString().split('T')[0]);
+                }}
+                style={styles.dateButton}
+              >
+                Tomorrow
+              </Button>
+            </View>
+            
+            {/* Date with tasks indicator */}
+            <View style={styles.dateIndicators}>
+              {Object.keys(tasksByDate).map(date => {
+                const tasksOnDate = tasksByDate[date];
+                const hasUrgent = tasksOnDate.some(task => task.priority === 'high');
+                const hasActive = tasksOnDate.some(task => 
+                  ['assigned', 'accepted', 'in_progress'].includes(task.status)
+                );
+                
+                return (
+                  <Button
+                    key={date}
+                    mode={selectedDate === date ? 'contained' : 'outlined'}
+                    onPress={() => setSelectedDate(date)}
+                    style={[
+                      styles.dateIndicator,
+                      selectedDate === date && styles.selectedDateIndicator
+                    ]}
+                    labelStyle={styles.dateIndicatorLabel}
+                  >
+                    {new Date(date).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                    {hasUrgent && <Text style={styles.urgentDot}> 🔴</Text>}
+                    {!hasUrgent && hasActive && <Text style={styles.activeDot}> 🟠</Text>}
+                  </Button>
+                );
+              })}
+            </View>
           </View>
         </Card>
 
@@ -278,6 +327,44 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 16,
+  },
+  calendarTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 12,
+  },
+  dateSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    gap: 8,
+  },
+  dateButton: {
+    flex: 1,
+  },
+  todayButton: {
+    backgroundColor: '#FF8A50',
+  },
+  dateIndicators: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dateIndicator: {
+    marginBottom: 8,
+  },
+  selectedDateIndicator: {
+    backgroundColor: '#FF8A50',
+  },
+  dateIndicatorLabel: {
+    fontSize: 12,
+  },
+  urgentDot: {
+    fontSize: 12,
+  },
+  activeDot: {
+    fontSize: 12,
   },
   dateInfoCard: {
     marginHorizontal: 20,

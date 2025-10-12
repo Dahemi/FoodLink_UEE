@@ -74,10 +74,15 @@ export default function TaskList({
   const filteredTasks = getFilteredTasks();
   
   // Combine tasks and claimed donations
-  const allItems = [
-    ...filteredTasks.map(task => ({ type: 'task', data: task })),
-    ...claimedDonations.map(donation => ({ type: 'donation', data: donation }))
-  ];
+  // If tasks already include mixed data (from dashboard filtering), use them directly
+  const allItems = tasks.map(task => {
+    // Check if this is a claimed donation (has different structure)
+    if (task.status === 'claimed' && task.donorInfo && task.ngoInfo) {
+      return { type: 'donation', data: task };
+    } else {
+      return { type: 'task', data: task };
+    }
+  });
 
   // Sort all items by priority and pickup time
   const sortedItems = allItems.sort((a, b) => {

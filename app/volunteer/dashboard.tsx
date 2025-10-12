@@ -203,15 +203,63 @@ export default function VolunteerDashboard() {
     // Combine regular tasks with claimed donations
     const allTasks = [...tasks, ...claimedDonations];
     
+    // Define active statuses (not completed/cancelled)
+    const activeStatuses = ['assigned', 'accepted', 'in_progress', 'pickup_scheduled', 'picked_up', 'delivered', 'claimed'];
+    
     switch (activeTab) {
       case 'urgent':
-        return urgentTasks;
+        // Show urgent tasks from all active tasks
+        return allTasks.filter(task => {
+          const isActive = activeStatuses.includes(task.status);
+          const isUrgent = task.priority === 'high' || task.priority === 'urgent';
+          return isActive && isUrgent;
+        });
       case 'today':
-        return todaysTasks;
+        // Show today's active tasks
+        const today = new Date();
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+        
+        return allTasks.filter(task => {
+          const isActive = activeStatuses.includes(task.status);
+          const taskDate = new Date(task.pickupTime || task.pickupSchedule?.availableFrom || new Date());
+          const isToday = taskDate >= startOfDay && taskDate < endOfDay;
+          return isActive && isToday;
+        });
       default:
-        return allTasks.filter(task => task.status !== 'completed' && task.status !== 'cancelled');
+        // Show all active tasks
+        return allTasks.filter(task => activeStatuses.includes(task.status));
     }
   };
+
+  // Calculate accurate counts for each tab
+  const getTaskCounts = () => {
+    const allTasks = [...tasks, ...claimedDonations];
+    const activeStatuses = ['assigned', 'accepted', 'in_progress', 'pickup_scheduled', 'picked_up', 'delivered', 'claimed'];
+    
+    const allTasksCount = allTasks.filter(task => activeStatuses.includes(task.status)).length;
+    
+    const urgentCount = allTasks.filter(task => {
+      const isActive = activeStatuses.includes(task.status);
+      const isUrgent = task.priority === 'high' || task.priority === 'urgent';
+      return isActive && isUrgent;
+    }).length;
+    
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    
+    const todayCount = allTasks.filter(task => {
+      const isActive = activeStatuses.includes(task.status);
+      const taskDate = new Date(task.pickupTime || task.pickupSchedule?.availableFrom || new Date());
+      const isToday = taskDate >= startOfDay && taskDate < endOfDay;
+      return isActive && isToday;
+    }).length;
+    
+    return { allTasksCount, urgentCount, todayCount };
+  };
+
+  const { allTasksCount, urgentCount, todayCount } = getTaskCounts();
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -223,14 +271,14 @@ export default function VolunteerDashboard() {
       </View>
       
       <View style={styles.headerRight}>
-        {urgentTasks.length > 0 && (
+        {urgentCount > 0 && (
           <Chip 
             mode="flat"
             style={styles.urgentBadge}
             textStyle={styles.urgentBadgeText}
             icon="alert-circle"
           >
-            {urgentTasks.length} Urgent
+            {urgentCount} Urgent
           </Chip>
         )}
         
@@ -332,7 +380,7 @@ export default function VolunteerDashboard() {
         style={[styles.tabButton, activeTab === 'all' && styles.activeTab]}
         labelStyle={styles.tabLabel}
       >
-        All Tasks
+        All Tasks ({allTasksCount})
       </Button>
       <Button
         mode={activeTab === 'urgent' ? 'contained' : 'outlined'}
@@ -340,7 +388,7 @@ export default function VolunteerDashboard() {
         style={[styles.tabButton, activeTab === 'urgent' && styles.activeTab]}
         labelStyle={styles.tabLabel}
       >
-        Urgent ({urgentTasks.length})
+        Urgent ({urgentCount})
       </Button>
       <Button
         mode={activeTab === 'today' ? 'contained' : 'outlined'}
@@ -348,7 +396,7 @@ export default function VolunteerDashboard() {
         style={[styles.tabButton, activeTab === 'today' && styles.activeTab]}
         labelStyle={styles.tabLabel}
       >
-        Today ({todaysTasks.length})
+        Today ({todayCount})
       </Button>
     </View>
   );
@@ -418,8 +466,8 @@ export default function VolunteerDashboard() {
         {/* Task List - Now part of the main scroll */}
         <View style={styles.taskListContainer}>
           <TaskList
-            tasks={tasks}
-            claimedDonations={claimedDonations}
+            tasks={getDisplayTasks()}
+            claimedDonations={[]} // Don't pass claimedDonations separately since they're included in getDisplayTasks()
             loading={false}
             refreshing={refreshing}
             error={error}
