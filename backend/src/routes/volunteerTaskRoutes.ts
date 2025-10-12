@@ -116,6 +116,27 @@ router.patch('/tasks/:id/status', authenticateToken, async (req, res, next) => {
       return res.status(404).json({ message: 'Not found' });
     }
     
+    // Update corresponding donation status based on task status
+    if (status === 'in_progress') {
+      // When volunteer starts the task (picks up), update donation to 'picked_up'
+      if (task.originalDonationId) {
+        await DonationModel.findByIdAndUpdate(task.originalDonationId, { 
+          status: 'picked_up',
+          actualPickupTime: new Date()
+        });
+        console.log('Updated donation status to picked_up for donation:', task.originalDonationId);
+      }
+    } else if (status === 'completed') {
+      // When volunteer completes the task (delivers), update donation to 'delivered'
+      if (task.originalDonationId) {
+        await DonationModel.findByIdAndUpdate(task.originalDonationId, { 
+          status: 'delivered',
+          deliveredAt: new Date()
+        });
+        console.log('Updated donation status to delivered for donation:', task.originalDonationId);
+      }
+    }
+    
     console.log('Task updated successfully:', task._id);
     
     // Transform _id to id for frontend compatibility
@@ -335,7 +356,9 @@ router.post('/accept-donation', authenticateToken, async (req, res, next) => {
       status: 'accepted',
       priority: donation.pickupSchedule?.urgency === 'urgent' ? 'high' : 'medium', // Map urgent to high
       distance: 'Calculating...',
-      estimatedDuration: '30-45 minutes'
+      estimatedDuration: '30-45 minutes',
+      // Store the original donation ID for status updates
+      originalDonationId: donationId
     };
     
     // Create the task using the existing TaskModel
