@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Card, Button, Chip, Searchbar } from 'react-native-paper';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { Card, Button, Chip, Searchbar, Surface } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useVolunteerTasks } from '../../hooks/useVolunteerTasks';
 import TaskList from '../../components/volunteer/TaskList';
 import StatsCard from '../../components/volunteer/StatsCard';
 import { VolunteerTask } from '../../types/volunteer';
+
+const { width } = Dimensions.get('window');
 
 export default function CompletedTasks() {
   const router = useRouter();
@@ -18,16 +20,48 @@ export default function CompletedTasks() {
     refreshTasks,
   } = useVolunteerTasks();
 
+  // Calculate meals delivered from completed tasks
+  const calculatedStats = useMemo(() => {
+    const mealsDelivered = completedTasks.reduce((sum, task) => {
+      try {
+        const foodDetails = typeof task.foodDetails === 'string' 
+          ? JSON.parse(task.foodDetails) 
+          : task.foodDetails;
+        
+        const quantity = foodDetails?.quantity || '';
+        const match = String(quantity).match(/\d+/);
+        return sum + (match ? parseInt(match[0]) : 0);
+      } catch (error) {
+        console.log('Error parsing foodDetails:', error);
+        return sum;
+      }
+    }, 0);
+
+    return {
+      ...stats,
+      mealsDelivered,
+      completedTasks: completedTasks.length,
+      totalHours: completedTasks.length * 2,
+      impactScore: completedTasks.length * 10,
+    };
+  }, [completedTasks, stats]);
+
   const handleTaskPress = (task: VolunteerTask) => {
     router.push(`/volunteer/task-detail?taskId=${task.id}`);
   };
 
   // Filter completed tasks based on search query
-  const filteredTasks = completedTasks.filter(task => 
-    task.donorInfo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.ngoInfo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    task.foodDetails.type.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTasks = completedTasks.filter(task => {
+    const donorName = task.donorInfo?.name || '';
+    const ngoName = task.ngoInfo?.name || '';
+    const foodType = typeof task.foodDetails === 'string' 
+      ? JSON.parse(task.foodDetails).type || ''
+      : task.foodDetails?.type || '';
+    
+    return donorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           ngoName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           foodType.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -43,13 +77,13 @@ export default function CompletedTasks() {
       <View style={styles.statsRow}>
         <StatsCard
           title="Total Completed"
-          value={stats?.completedTasks || 0}
+          value={calculatedStats.completedTasks}
           icon="✅"
           color="#4CAF50"
         />
         <StatsCard
           title="Meals Delivered"
-          value={stats?.mealsDelivered || 0}
+          value={calculatedStats.mealsDelivered}
           icon="🍽️"
           color="#2196F3"
         />
@@ -58,14 +92,14 @@ export default function CompletedTasks() {
       <View style={styles.statsRow}>
         <StatsCard
           title="Hours Volunteered"
-          value={stats?.totalHours || 0}
+          value={calculatedStats.totalHours}
           subtitle="estimated"
           icon="⏰"
           color="#FF5722"
         />
         <StatsCard
           title="Impact Score"
-          value={stats?.impactScore || 0}
+          value={calculatedStats.impactScore}
           subtitle="community points"
           icon="🌟"
           color="#9C27B0"
@@ -81,27 +115,27 @@ export default function CompletedTasks() {
       </View>
       <View style={styles.cardContent}>
         <View style={styles.achievementsList}>
-          {stats && stats.completedTasks >= 1 && (
+          {calculatedStats.completedTasks >= 1 && (
             <Chip icon="check-circle" mode="flat" style={styles.achievementChip}>
               First Task Complete
             </Chip>
           )}
-          {stats && stats.completedTasks >= 5 && (
+          {calculatedStats.completedTasks >= 5 && (
             <Chip icon="star" mode="flat" style={styles.achievementChip}>
               5 Tasks Champion
             </Chip>
           )}
-          {stats && stats.completedTasks >= 10 && (
+          {calculatedStats.completedTasks >= 10 && (
             <Chip icon="trophy" mode="flat" style={styles.achievementChip}>
               Dedicated Volunteer
             </Chip>
           )}
-          {stats && stats.mealsDelivered >= 50 && (
+          {calculatedStats.mealsDelivered >= 50 && (
             <Chip icon="heart" mode="flat" style={styles.achievementChip}>
               Community Hero
             </Chip>
           )}
-          {(!stats || stats.completedTasks === 0) && (
+          {calculatedStats.completedTasks === 0 && (
             <Text style={styles.noAchievements}>
               Complete your first task to unlock achievements! 🌟
             </Text>
@@ -113,24 +147,77 @@ export default function CompletedTasks() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {renderHeader()}
-        {renderStats()}
-        {renderAchievements()}
-
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Searchbar
-            placeholder="Search completed tasks..."
-            onChangeText={setSearchQuery}
-            value={searchQuery}
-            style={styles.searchBar}
-            iconColor="#FF8A50"
-          />
+      {/* Header */}
+      {renderHeader()}
+      
+      {/* Stats Section - Compact */}
+      <Surface style={styles.statsSurface} elevation={1}>
+        <View style={styles.statsGrid}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{calculatedStats.completedTasks}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{calculatedStats.mealsDelivered}</Text>
+            <Text style={styles.statLabel}>Meals</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{calculatedStats.totalHours}h</Text>
+            <Text style={styles.statLabel}>Volunteered</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{calculatedStats.impactScore}</Text>
+            <Text style={styles.statLabel}>Impact</Text>
+          </View>
         </View>
-      </ScrollView>
+      </Surface>
 
-      {/* Task List */}
+      {/* Search and Filter */}
+      <View style={styles.searchSection}>
+        <Searchbar
+          placeholder="Search completed tasks..."
+          onChangeText={setSearchQuery}
+          value={searchQuery}
+          style={styles.searchBar}
+          iconColor="#FF8A50"
+        />
+        {searchQuery && (
+          <Text style={styles.searchResults}>
+            {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''} found
+          </Text>
+        )}
+      </View>
+
+      {/* Achievements - Compact */}
+      {calculatedStats.completedTasks > 0 && (
+        <View style={styles.achievementsSection}>
+          <Text style={styles.achievementsTitle}>🏆 Achievements</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.achievementsScroll}>
+            {calculatedStats.completedTasks >= 1 && (
+              <Chip icon="check-circle" mode="flat" style={styles.achievementChip}>
+                First Task
+              </Chip>
+            )}
+            {calculatedStats.completedTasks >= 5 && (
+              <Chip icon="star" mode="flat" style={styles.achievementChip}>
+                5 Tasks
+              </Chip>
+            )}
+            {calculatedStats.completedTasks >= 10 && (
+              <Chip icon="trophy" mode="flat" style={styles.achievementChip}>
+                Dedicated
+              </Chip>
+            )}
+            {calculatedStats.mealsDelivered >= 50 && (
+              <Chip icon="heart" mode="flat" style={styles.achievementChip}>
+                Hero
+              </Chip>
+            )}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Task List - Takes remaining space */}
       <View style={styles.taskListContainer}>
         <TaskList
           tasks={filteredTasks}
@@ -155,26 +242,97 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7FAFC',
   },
-  scrollView: {
-    flex: 0,
-  },
   header: {
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#718096',
+    lineHeight: 20,
+  },
+  statsSurface: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 12,
+    paddingVertical: 16,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#718096',
+    fontWeight: '500',
+  },
+  searchSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  searchBar: {
+    backgroundColor: '#F7FAFC',
+    elevation: 0,
+    borderRadius: 8,
+  },
+  searchResults: {
+    fontSize: 12,
+    color: '#718096',
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  achievementsSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  achievementsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#2D3748',
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#718096',
-    lineHeight: 22,
+  achievementsScroll: {
+    flexDirection: 'row',
+  },
+  achievementChip: {
+    backgroundColor: '#E6FFFA',
+    borderColor: '#4CAF50',
+    marginRight: 8,
+  },
+  taskListContainer: {
+    flex: 1,
+  },
+  // Legacy styles for old components (keeping for compatibility)
+  scrollView: {
+    flex: 0,
   },
   statsContainer: {
     paddingHorizontal: 20,
@@ -210,10 +368,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  achievementChip: {
-    backgroundColor: '#E6FFFA',
-    borderColor: '#4CAF50',
-  },
   noAchievements: {
     fontSize: 14,
     color: '#718096',
@@ -227,12 +381,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
-  },
-  searchBar: {
-    backgroundColor: '#F7FAFC',
-    elevation: 0,
-  },
-  taskListContainer: {
-    flex: 1,
   },
 });

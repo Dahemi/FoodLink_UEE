@@ -117,6 +117,7 @@ export default function ClaimedDonationCard({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
+            <Text style={styles.donationTitle}>{donation.title || 'Food Donation'}</Text>
             <Text style={styles.donorName}>{donation.donorInfo?.name || 'Unknown Donor'}</Text>
             <Text style={styles.route}>→ {donation.ngoInfo?.name || 'Unknown NGO'}</Text>
           </View>
@@ -264,11 +265,17 @@ const styles = StyleSheet.create({
     gap: 4,
     flexShrink: 0,
   },
-  donorName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2D3748',
+  donationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF8A50',
     marginBottom: 4,
+  },
+  donorName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 2,
   },
   route: {
     fontSize: 14,

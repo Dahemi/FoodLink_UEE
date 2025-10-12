@@ -32,6 +32,7 @@ export { NotificationModel } from './Notification';
 import mongoose, { Schema } from 'mongoose';
 
 const LegacyTaskSchema = new Schema({
+  title: String, // Add title field for donation title
   donorInfo: {
     name: String,
     address: String,

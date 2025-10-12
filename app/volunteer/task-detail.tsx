@@ -201,9 +201,32 @@ export default function TaskDetail() {
     };
   };
 
+  const parseFoodDetails = () => {
+    if (!task) return null;
+    
+    try {
+      // Handle both string and object foodDetails
+      if (typeof task.foodDetails === 'string') {
+        return JSON.parse(task.foodDetails);
+      }
+      return task.foodDetails;
+    } catch (error) {
+      console.log('Error parsing foodDetails:', error);
+      return {
+        type: 'Food',
+        quantity: 'Unknown',
+        expiryTime: new Date().toISOString(),
+        specialInstructions: ''
+      };
+    }
+  };
+
   const isExpiringSoon = () => {
     if (!task) return false;
-    const expiryTime = new Date(task.foodDetails.expiryTime);
+    const foodDetails = parseFoodDetails();
+    if (!foodDetails || !foodDetails.expiryTime) return false;
+    
+    const expiryTime = new Date(foodDetails.expiryTime);
     const now = new Date();
     const hoursUntilExpiry = (expiryTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     return hoursUntilExpiry <= 2 && hoursUntilExpiry > 0;
@@ -236,7 +259,8 @@ export default function TaskDetail() {
 
   const pickup = formatDateTime(task.pickupTime);
   const delivery = formatDateTime(task.deliveryTime);
-  const expiry = formatDateTime(task.foodDetails.expiryTime);
+  const foodDetails = parseFoodDetails();
+  const expiry = foodDetails ? formatDateTime(foodDetails.expiryTime) : { date: 'Unknown', time: 'Unknown' };
 
   return (
     <View style={styles.container}>
@@ -246,6 +270,9 @@ export default function TaskDetail() {
           <View style={styles.headerContent}>
             <View style={styles.headerTop}>
               <View style={styles.headerLeft}>
+                {task.title && (
+                  <Text style={styles.donationTitle}>{task.title}</Text>
+                )}
                 <Text style={styles.taskTitle}>{task.donorInfo.name}</Text>
                 <Text style={styles.taskRoute}>→ {task.ngoInfo.name}</Text>
               </View>
@@ -287,25 +314,55 @@ export default function TaskDetail() {
           <View style={styles.cardContent}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Type:</Text>
-              <Text style={styles.detailValue}>{task.foodDetails.type}</Text>
+              <Text style={styles.detailValue}>{foodDetails?.type || 'Unknown'}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Quantity:</Text>
-              <Text style={styles.detailValue}>{task.foodDetails.quantity}</Text>
+              <Text style={styles.detailValue}>{foodDetails?.quantity || 'Unknown'}</Text>
             </View>
+            {foodDetails?.category && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Category:</Text>
+                <Text style={styles.detailValue}>{foodDetails.category}</Text>
+              </View>
+            )}
+            {foodDetails?.estimatedServings && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Servings:</Text>
+                <Text style={styles.detailValue}>{foodDetails.estimatedServings} people</Text>
+              </View>
+            )}
+            {foodDetails?.description && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Description:</Text>
+                <Text style={styles.detailValue}>{foodDetails.description}</Text>
+              </View>
+            )}
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Expires:</Text>
               <Text style={[styles.detailValue, isExpiringSoon() && styles.expiryText]}>
                 {expiry.date} at {expiry.time}
               </Text>
             </View>
-            {task.foodDetails.specialInstructions && (
+            {foodDetails?.allergens && foodDetails.allergens.length > 0 && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Allergens:</Text>
+                <Text style={styles.detailValue}>{foodDetails.allergens.join(', ')}</Text>
+              </View>
+            )}
+            {foodDetails?.storageInstructions && (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Storage:</Text>
+                <Text style={styles.detailValue}>{foodDetails.storageInstructions}</Text>
+              </View>
+            )}
+            {foodDetails?.specialInstructions && (
               <>
                 <Divider style={styles.divider} />
                 <View style={styles.instructionsContainer}>
                   <Text style={styles.instructionsLabel}>📝 Special Instructions:</Text>
                   <Text style={styles.instructionsText}>
-                    {task.foodDetails.specialInstructions}
+                    {foodDetails.specialInstructions}
                   </Text>
                 </View>
               </>
@@ -517,9 +574,15 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 8,
   },
+  donationTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FF8A50',
+    marginBottom: 4,
+  },
   taskTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#2D3748',
     marginBottom: 4,
   },

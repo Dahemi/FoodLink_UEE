@@ -1,5 +1,6 @@
 export interface VolunteerTask {
   id: string;
+  title?: string; // Add title field for donation title
   donorInfo: {
     name: string;
     address: string;

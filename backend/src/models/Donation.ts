@@ -224,7 +224,7 @@ DonationSchema.virtual('hoursUntilExpiry').get(function () {
 
 // Virtual for urgency level
 DonationSchema.virtual('urgencyLevel').get(function () {
-  const hours = this.hoursUntilExpiry;
+  const hours = (this as any).hoursUntilExpiry;
   if (hours === null) return 'unknown';
   if (hours <= 2) return 'urgent';
   if (hours <= 6) return 'high';

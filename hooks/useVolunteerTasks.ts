@@ -48,6 +48,15 @@ export function useVolunteerTasks() {
       console.log('Loaded tasks:', savedTasks.length);
       console.log('Loaded claimed donations:', savedClaimedDonations.length);
       console.log('Claimed donations data:', savedClaimedDonations);
+      console.log('🔍 DEBUGGING TASKS TITLES:');
+      savedTasks.forEach((task, index) => {
+        console.log(`Task ${index}:`, {
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          hasTitle: !!task.title
+        });
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load tasks';
       setError(errorMessage);

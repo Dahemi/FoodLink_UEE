@@ -437,7 +437,7 @@ router.get('/ngo/stats', authenticateNGO, async (req, res, next) => {
       approvedClaims: claims.filter(d => d.status === 'pickup_scheduled' || d.status === 'picked_up').length,
       completedClaims: claims.filter(d => d.status === 'delivered').length,
       totalServings: claims.reduce((sum, d) => sum + (d.foodDetails?.estimatedServings || 0), 0),
-      totalBeneficiaries: claims.reduce((sum, d) => sum + (d.beneficiariesServed || 0), 0),
+      totalBeneficiaries: claims.reduce((sum, d) => sum + ((d as any).beneficiariesServed || 0), 0),
     };
     
     sendSuccess(res, stats, 'NGO statistics retrieved successfully');

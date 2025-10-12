@@ -371,7 +371,7 @@ NotificationSchema.methods.dismiss = function() {
 
 // Method to add delivery tracking
 NotificationSchema.methods.addDeliveryTracking = function(channel: string, status: string, metadata?: any) {
-  const existingChannel = this.channels.find(c => c.channel === channel);
+  const existingChannel = this.channels.find((c: any) => c.channel === channel);
   if (existingChannel) {
     existingChannel.status = status;
     if (status === 'sent') existingChannel.sentAt = new Date();

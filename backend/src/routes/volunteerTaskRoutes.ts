@@ -65,11 +65,29 @@ router.get('/tasks', authenticateToken, async (_req, res, next) => {
   try {
     const tasks = await TaskModel.find().sort({ createdAt: -1 }).lean();
     
-    // Transform _id to id for frontend compatibility
-    const transformedTasks = tasks.map(task => ({
-      ...task,
-      id: task._id.toString(),
-      _id: undefined // Remove _id to avoid confusion
+    // Transform _id to id for frontend compatibility and populate title from donation
+    const transformedTasks = await Promise.all(tasks.map(async (task) => {
+      let title = task.title;
+      
+      // If task doesn't have a title but has a donationId, fetch it from the original donation
+      if (!title && task.donationId) {
+        try {
+          const donation = await DonationModel.findById(task.donationId).select('title').lean();
+          if (donation && donation.title) {
+            title = donation.title;
+            console.log(`✅ Populated title for task ${task._id}: ${title}`);
+          }
+        } catch (error) {
+          console.log(`❌ Error fetching title for task ${task._id}:`, error);
+        }
+      }
+      
+      return {
+        ...task,
+        id: task._id.toString(),
+        title: title || 'Food Donation', // Fallback title
+        _id: undefined // Remove _id to avoid confusion
+      };
     }));
     
     res.json(transformedTasks);
@@ -89,10 +107,26 @@ router.get('/tasks/:id', authenticateToken, async (req, res, next) => {
     const task = await TaskModel.findById(req.params.id).lean();
     if (!task) return res.status(404).json({ message: 'Not found' });
     
+    let title = task.title;
+    
+    // If task doesn't have a title but has a donationId, fetch it from the original donation
+    if (!title && task.donationId) {
+      try {
+        const donation = await DonationModel.findById(task.donationId).select('title').lean();
+        if (donation && donation.title) {
+          title = donation.title;
+          console.log(`✅ Populated title for task ${task._id}: ${title}`);
+        }
+      } catch (error) {
+        console.log(`❌ Error fetching title for task ${task._id}:`, error);
+      }
+    }
+    
     // Transform _id to id for frontend compatibility
     const transformedTask = {
       ...task,
       id: task._id.toString(),
+      title: title || 'Food Donation', // Fallback title
       _id: undefined // Remove _id to avoid confusion
     };
     
@@ -151,10 +185,26 @@ router.patch('/tasks/:id/status', authenticateToken, async (req, res, next) => {
     
     console.log('Task updated successfully:', task._id);
     
+    let title = task.title;
+    
+    // If task doesn't have a title but has a donationId, fetch it from the original donation
+    if (!title && task.donationId) {
+      try {
+        const donation = await DonationModel.findById(task.donationId).select('title').lean();
+        if (donation && donation.title) {
+          title = donation.title;
+          console.log(`✅ Populated title for task ${task._id}: ${title}`);
+        }
+      } catch (error) {
+        console.log(`❌ Error fetching title for task ${task._id}:`, error);
+      }
+    }
+    
     // Transform _id to id for frontend compatibility
     const transformedTask = {
       ...task.toObject(),
       id: task._id.toString(),
+      title: title || 'Food Donation', // Fallback title
       _id: undefined // Remove _id to avoid confusion
     };
     
@@ -171,10 +221,26 @@ router.patch('/tasks/:id/reschedule', authenticateToken, async (req, res, next) 
     const task = await TaskModel.findByIdAndUpdate(req.params.id, body, { new: true });
     if (!task) return res.status(404).json({ message: 'Not found' });
     
+    let title = task.title;
+    
+    // If task doesn't have a title but has a donationId, fetch it from the original donation
+    if (!title && task.donationId) {
+      try {
+        const donation = await DonationModel.findById(task.donationId).select('title').lean();
+        if (donation && donation.title) {
+          title = donation.title;
+          console.log(`✅ Populated title for task ${task._id}: ${title}`);
+        }
+      } catch (error) {
+        console.log(`❌ Error fetching title for task ${task._id}:`, error);
+      }
+    }
+    
     // Transform _id to id for frontend compatibility
     const transformedTask = {
       ...task.toObject(),
       id: task._id.toString(),
+      title: title || 'Food Donation', // Fallback title
       _id: undefined // Remove _id to avoid confusion
     };
     
@@ -187,20 +253,39 @@ router.get('/stats', authenticateToken, async (_req, res, next) => {
   try {
     const tasks = await TaskModel.find().lean();
     const completed = tasks.filter(t => t.status === 'completed');
+    
+    const mealsDelivered = completed.reduce((sum, t) => {
+      try {
+        // Handle both string and object foodDetails
+        let foodDetails = t.foodDetails;
+        if (typeof foodDetails === 'string') {
+          foodDetails = JSON.parse(foodDetails);
+        }
+        
+        const quantity = (foodDetails as any)?.quantity || '';
+        const match = String(quantity).match(/\d+/);
+        return sum + (match ? parseInt(match[0]) : 0);
+      } catch (error) {
+        console.log('Error parsing foodDetails in stats:', error);
+        return sum;
+      }
+    }, 0);
+    
     const stats = {
       completedTasks: completed.length,
       totalDeliveries: completed.length,
-      mealsDelivered: completed.reduce((sum, t) => {
-        const foodDetails = t.foodDetails as any;
-        const match = String(foodDetails?.quantity || '').match(/\d+/);
-        return sum + (match ? parseInt(match[0]) : 0);
-      }, 0),
+      mealsDelivered,
       averageRating: 0,
       totalHours: completed.length * 2,
       impactScore: completed.length * 10,
     };
+    
+    console.log('Calculated stats:', stats);
     res.json(stats);
-  } catch (e) { next(e); }
+  } catch (e) { 
+    console.error('Error calculating stats:', e);
+    next(e); 
+  }
 });
 
 // Get claimed donations for volunteers
@@ -343,19 +428,20 @@ router.post('/accept-donation', authenticateToken, async (req, res, next) => {
     
      // Create a volunteer task
      const taskData = {
+       title: donation.title || 'Food Donation', // Add donation title
        donorInfo: {
-         name: donation.donorId?.name || 'Unknown',
+         name: (donation.donorId as any)?.name || 'Unknown',
          address: donation.pickupLocation?.address || 'Address not available',
-         phone: donation.donorId?.phone || 'Phone not available',
-         contactPerson: donation.donorId?.name || 'Contact person not available'
+         phone: (donation.donorId as any)?.phone || 'Phone not available',
+         contactPerson: (donation.donorId as any)?.name || 'Contact person not available'
        },
        ngoInfo: {
-         name: donation.claimedBy?.name || 'NGO not available',
-         address: donation.claimedBy?.address?.street ? 
-           `${donation.claimedBy.address.street}, ${donation.claimedBy.address.city}, ${donation.claimedBy.address.state}` : 
+         name: (donation.claimedBy as any)?.name || 'NGO not available',
+         address: (donation.claimedBy as any)?.address?.street ? 
+           `${(donation.claimedBy as any).address.street}, ${(donation.claimedBy as any).address.city}, ${(donation.claimedBy as any).address.state}` : 
            'Address not available',
-         phone: donation.claimedBy?.phone || 'Phone not available',
-         contactPerson: donation.claimedBy?.name || 'Contact person not available'
+         phone: (donation.claimedBy as any)?.phone || 'Phone not available',
+         contactPerson: (donation.claimedBy as any)?.name || 'Contact person not available'
        },
        foodDetails: JSON.stringify({
          type: donation.foodDetails?.type || 'Food',
