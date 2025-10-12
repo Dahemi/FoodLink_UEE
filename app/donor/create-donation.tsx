@@ -10,9 +10,11 @@ import {
   TouchableOpacity,
   Image,
 } from 'react-native';
-import { TextInput, Button, Card, Chip, IconButton } from 'react-native-paper';
+import { TextInput, Button, Card, Chip, IconButton, SegmentedButtons } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import Slider from '@react-native-community/slider';
 import { DonationApi } from '../../services/createDonation';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useDonorAuth } from '../../context/DonorAuthContext';
@@ -21,7 +23,12 @@ export default function CreateDonation() {
   const router = useRouter();
   const { authState } = useDonorAuth();
   const [loading, setLoading] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Quick template selection
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [expiryDate, setExpiryDate] = useState(new Date());
 
   // Form state
   const [formData, setFormData] = useState({
@@ -30,13 +37,12 @@ export default function CreateDonation() {
       type: 'cooked_meal',
       category: 'vegetarian',
       quantity: '',
-      estimatedServings: '',
+      estimatedServings: 10,
       description: '',
       ingredients: '',
       allergens: '',
       storageInstructions: '',
     },
-    expiryDateTime: '',
     pickupLocation: {
       address: '',
       city: '',
@@ -51,16 +57,151 @@ export default function CreateDonation() {
 
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
 
+  // Quick templates for common donations
+  const donationTemplates = [
+    {
+      id: 'restaurant_surplus',
+      icon: '🍽️',
+      label: 'Restaurant Surplus',
+      data: {
+        type: 'cooked_meal',
+        category: 'non_vegetarian',
+        quantity: '20-30 portions',
+        description: 'Fresh cooked meals from restaurant surplus',
+        urgency: 'high',
+      }
+    },
+    {
+      id: 'bakery_items',
+      icon: '🥐',
+      label: 'Bakery Items',
+      data: {
+        type: 'packaged_food',
+        category: 'vegetarian',
+        quantity: '15-20 items',
+        description: 'Fresh baked goods - bread, pastries, cakes',
+        urgency: 'medium',
+      }
+    },
+    {
+      id: 'fresh_produce',
+      icon: '🥬',
+      label: 'Fresh Produce',
+      data: {
+        type: 'raw_ingredients',
+        category: 'vegan',
+        quantity: '10-15 kg',
+        description: 'Fresh fruits and vegetables',
+        urgency: 'medium',
+      }
+    },
+    {
+      id: 'packaged_goods',
+      icon: '📦',
+      label: 'Packaged Goods',
+      data: {
+        type: 'packaged_food',
+        category: 'vegetarian',
+        quantity: '20-30 items',
+        description: 'Non-perishable packaged food items',
+        urgency: 'low',
+      }
+    },
+  ];
+
+  // Predefined quantities
+  const quantityOptions = [
+    { label: '5-10 portions', value: '5-10 portions', servings: 8 },
+    { label: '10-20 portions', value: '10-20 portions', servings: 15 },
+    { label: '20-30 portions', value: '20-30 portions', servings: 25 },
+    { label: '30-50 portions', value: '30-50 portions', servings: 40 },
+    { label: '50+ portions', value: '50+ portions', servings: 60 },
+  ];
+
+  // Common allergens
+  const commonAllergens = [
+    { label: 'Nuts', icon: '🥜', value: 'nuts' },
+    { label: 'Dairy', icon: '🥛', value: 'dairy' },
+    { label: 'Gluten', icon: '🌾', value: 'gluten' },
+    { label: 'Eggs', icon: '🥚', value: 'eggs' },
+    { label: 'Soy', icon: '🫘', value: 'soy' },
+    { label: 'Fish', icon: '🐟', value: 'fish' },
+    { label: 'Shellfish', icon: '🦐', value: 'shellfish' },
+    { label: 'Sesame', icon: '🌰', value: 'sesame' },
+  ];
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([]);
+
+  // Common storage instructions
+  const storageOptions = [
+    { icon: '❄️', label: 'Refrigerated', value: 'Keep refrigerated at 4°C or below' },
+    { icon: '🧊', label: 'Frozen', value: 'Keep frozen until pickup' },
+    { icon: '🌡️', label: 'Room Temp', value: 'Store at room temperature' },
+    { icon: '🔥', label: 'Keep Warm', value: 'Keep hot until pickup (above 60°C)' },
+  ];
+
+  const handleTemplateSelect = (template: any) => {
+    setSelectedTemplate(template.id);
+    setFormData(prev => ({
+      ...prev,
+      foodDetails: {
+        ...prev.foodDetails,
+        type: template.data.type,
+        category: template.data.category,
+        quantity: template.data.quantity,
+        description: template.data.description,
+      },
+      pickupSchedule: {
+        ...prev.pickupSchedule,
+        urgency: template.data.urgency,
+      }
+    }));
+  };
+
+  const handleQuantitySelect = (option: any) => {
+    setFormData(prev => ({
+      ...prev,
+      foodDetails: {
+        ...prev.foodDetails,
+        quantity: option.value,
+        estimatedServings: option.servings,
+      }
+    }));
+  };
+
+  const toggleAllergen = (allergen: string) => {
+    setSelectedAllergens(prev => 
+      prev.includes(allergen) 
+        ? prev.filter(a => a !== allergen)
+        : [...prev, allergen]
+    );
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const newDate = new Date(expiryDate);
+      newDate.setFullYear(selectedDate.getFullYear());
+      newDate.setMonth(selectedDate.getMonth());
+      newDate.setDate(selectedDate.getDate());
+      setExpiryDate(newDate);
+    }
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      const newDate = new Date(expiryDate);
+      newDate.setHours(selectedTime.getHours());
+      newDate.setMinutes(selectedTime.getMinutes());
+      setExpiryDate(newDate);
+    }
+  };
+
   const handleImagePick = async () => {
     try {
-      const { status } =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please grant camera roll permissions to upload images.'
-        );
+        Alert.alert('Permission Required', 'Please grant photo library permissions.');
         return;
       }
 
@@ -72,24 +213,19 @@ export default function CreateDonation() {
       });
 
       if (!result.canceled && result.assets) {
-        const newImages = result.assets.map((asset) => asset.uri);
-        setSelectedImages((prev) => [...prev, ...newImages].slice(0, 5)); // Max 5 images
+        const newImages = result.assets.map(asset => asset.uri);
+        setSelectedImages(prev => [...prev, ...newImages].slice(0, 5));
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
-      console.error('Image pick error:', error);
+      Alert.alert('Error', 'Failed to pick images. Please try again.');
     }
   };
 
   const handleTakePhoto = async () => {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please grant camera permissions to take photos.'
-        );
+        Alert.alert('Permission Required', 'Please grant camera permissions.');
         return;
       }
 
@@ -99,77 +235,48 @@ export default function CreateDonation() {
       });
 
       if (!result.canceled && result.assets) {
-        setSelectedImages((prev) =>
-          [...prev, result.assets[0].uri].slice(0, 5)
-        );
+        setSelectedImages(prev => [...prev, result.assets[0].uri].slice(0, 5));
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to take photo. Please try again.');
-      console.error('Camera error:', error);
     }
   };
 
   const removeImage = (index: number) => {
-    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+    setSelectedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
     try {
       // Validation
       if (!formData.title.trim()) {
-        Alert.alert('Required Field', 'Please enter a donation title');
-        return;
-      }
-      if (!formData.foodDetails.quantity.trim()) {
-        Alert.alert('Required Field', 'Please enter quantity');
-        return;
-      }
-      if (
-        !formData.foodDetails.estimatedServings ||
-        parseInt(formData.foodDetails.estimatedServings) < 1
-      ) {
-        Alert.alert('Required Field', 'Please enter valid estimated servings');
-        return;
-      }
-      if (!formData.foodDetails.description.trim()) {
-        Alert.alert('Required Field', 'Please enter food description');
-        return;
-      }
-      if (!formData.expiryDateTime) {
-        Alert.alert('Required Field', 'Please enter expiry date/time');
-        return;
-      }
-      if (!formData.pickupLocation.address.trim()) {
-        Alert.alert('Required Field', 'Please enter pickup address');
+        Alert.alert('Required', 'Please enter a donation title');
         return;
       }
 
       setLoading(true);
 
-      // Parse expiry date/time
-      let expiryDate: Date;
-      try {
-        const [datePart, timePart] = formData.expiryDateTime.split(' ');
-        if (!datePart || !timePart) {
-          throw new Error('Invalid date format');
-        }
-        expiryDate = new Date(`${datePart}T${timePart}:00`);
-        if (isNaN(expiryDate.getTime())) {
-          throw new Error('Invalid date');
-        }
-      } catch (error) {
-        Alert.alert(
-          'Invalid Date',
-          'Please use format: YYYY-MM-DD HH:MM (e.g., 2024-01-20 18:00)'
-        );
-        setLoading(false);
-        return;
-      }
+      // Get address from user profile or form
+      let pickupAddress = formData.pickupLocation.address;
+      let pickupCity = formData.pickupLocation.city || 'Colombo';
+      let pickupState = formData.pickupLocation.state || 'Western Province';
+      let pickupZipCode = formData.pickupLocation.zipCode || '00000';
 
-      if (expiryDate <= new Date()) {
-        Alert.alert('Invalid Date', 'Expiry date/time must be in the future');
-        setLoading(false);
-        return;
+      // If user has saved address and no custom address provided
+      if (authState.user?.address && !pickupAddress) {
+        if (typeof authState.user.address === 'string') {
+          // If address is stored as string, parse it
+          const parts = authState.user.address.split(',').map(s => s.trim());
+          pickupAddress = parts[0] || '123 Main St';
+          pickupCity = parts[1] || 'Colombo';
+          pickupState = parts[2] || 'Western Province';
+        } else if (typeof authState.user.address === 'object') {
+          // If address is stored as object
+          pickupAddress = authState.user.address.street || '123 Main St';
+          pickupCity = authState.user.address.city || 'Colombo';
+          pickupState = authState.user.address.state || 'Western Province';
+          pickupZipCode = authState.user.address.zipCode || '00000';
+        }
       }
 
       // Prepare donation data
@@ -179,36 +286,26 @@ export default function CreateDonation() {
           type: formData.foodDetails.type,
           category: formData.foodDetails.category,
           quantity: formData.foodDetails.quantity.trim(),
-          estimatedServings: parseInt(formData.foodDetails.estimatedServings),
+          estimatedServings: formData.foodDetails.estimatedServings,
           description: formData.foodDetails.description.trim(),
           ingredients: formData.foodDetails.ingredients
-            ? formData.foodDetails.ingredients
-                .split(',')
-                .map((i) => i.trim())
-                .filter(Boolean)
+            ? formData.foodDetails.ingredients.split(',').map(i => i.trim()).filter(Boolean)
             : undefined,
-          allergens: formData.foodDetails.allergens
-            ? formData.foodDetails.allergens
-                .split(',')
-                .map((a) => a.trim())
-                .filter(Boolean)
-            : undefined,
-          storageInstructions:
-            formData.foodDetails.storageInstructions.trim() || undefined,
+          allergens: selectedAllergens.length > 0 ? selectedAllergens : undefined,
+          storageInstructions: formData.foodDetails.storageInstructions || undefined,
         },
-        images:
-          selectedImages.length > 0
-            ? selectedImages.map((uri, index) => ({
-                url: uri,
-                isPrimary: index === 0,
-              }))
-            : undefined,
+        images: selectedImages.length > 0
+          ? selectedImages.map((uri, index) => ({
+              url: uri,
+              isPrimary: index === 0,
+            }))
+          : undefined,
         expiryDateTime: expiryDate.toISOString(),
         pickupLocation: {
-          address: formData.pickupLocation.address.trim(),
-          city: formData.pickupLocation.city.trim() || 'Colombo',
-          state: formData.pickupLocation.state.trim() || 'Western Province',
-          zipCode: formData.pickupLocation.zipCode.trim() || '00000',
+          address: pickupAddress,
+          city: pickupCity,
+          state: pickupState,
+          zipCode: pickupZipCode,
           coordinates: {
             latitude: 6.9271,
             longitude: 79.8612,
@@ -218,73 +315,31 @@ export default function CreateDonation() {
           availableFrom: new Date().toISOString(),
           availableUntil: expiryDate.toISOString(),
           urgency: formData.pickupSchedule.urgency,
-          specialInstructions:
-            formData.pickupSchedule.specialInstructions.trim() || undefined,
+          specialInstructions: formData.pickupSchedule.specialInstructions.trim() || undefined,
         },
       };
 
-      console.log(
-        'Submitting donation:',
-        JSON.stringify(donationData, null, 2)
-      );
-
+      console.log('Submitting donation:', JSON.stringify(donationData, null, 2));
       const response = await DonationApi.createDonation(donationData);
-
       console.log('Donation created successfully:', response);
 
-      Alert.alert(
-        'Success! 🎉',
-        'Your donation has been posted successfully. NGOs can now view and claim it.',
-        [
-          {
-            text: 'View Donations',
-            onPress: () => router.push('/donor/home'),
-          },
-          {
-            text: 'Add Another',
-            onPress: () => {
-              // Reset form
-              setFormData({
-                title: '',
-                foodDetails: {
-                  type: 'cooked_meal',
-                  category: 'vegetarian',
-                  quantity: '',
-                  estimatedServings: '',
-                  description: '',
-                  ingredients: '',
-                  allergens: '',
-                  storageInstructions: '',
-                },
-                expiryDateTime: '',
-                pickupLocation: {
-                  address: '',
-                  city: '',
-                  state: '',
-                  zipCode: '',
-                },
-                pickupSchedule: {
-                  urgency: 'medium',
-                  specialInstructions: '',
-                },
-              });
-              setSelectedImages([]);
-            },
-          },
-        ]
-      );
+      // Navigate to success screen with donation title
+      router.replace({
+        pathname: '/donor/donation-success',
+        params: { donationTitle: formData.title },
+      });
     } catch (error) {
       console.error('Create donation error:', error);
       Alert.alert(
         'Error',
-        error instanceof Error
-          ? error.message
-          : 'Failed to create donation. Please try again.'
+        error instanceof Error ? error.message : 'Failed to create donation. Please try again.'
       );
     } finally {
       setLoading(false);
     }
   };
+  
+
 
   if (loading) {
     return <LoadingSpinner message="Creating donation..." />;
@@ -306,159 +361,258 @@ export default function CreateDonation() {
             <Text style={styles.backButton}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.title}>Create Donation</Text>
-          <Text style={styles.subtitle}>
-            Share your surplus food with those in need
-          </Text>
+          <Text style={styles.subtitle}>Quick and easy - just a few taps!</Text>
         </View>
 
         <Card style={styles.card}>
           <Card.Content>
-            {/* Title */}
-            <Text style={styles.label}>Donation Title *</Text>
-            <TextInput
-              value={formData.title}
-              onChangeText={(text) =>
-                setFormData((prev) => ({ ...prev, title: text }))
-              }
-              mode="outlined"
-              style={styles.input}
-              placeholder="e.g., Fresh vegetables from restaurant"
-              activeOutlineColor="#FF8A50"
-            />
-
-            {/* Food Type */}
-            <Text style={styles.label}>Food Type *</Text>
-            <View style={styles.chipContainer}>
-              {[
-                { value: 'cooked_meal', label: 'Cooked Meal', icon: '🍽️' },
-                {
-                  value: 'raw_ingredients',
-                  label: 'Raw Ingredients',
-                  icon: '🥬',
-                },
-                { value: 'packaged_food', label: 'Packaged Food', icon: '📦' },
-              ].map((type) => (
-                <Chip
-                  key={type.value}
-                  selected={formData.foodDetails.type === type.value}
-                  onPress={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      foodDetails: { ...prev.foodDetails, type: type.value },
-                    }))
-                  }
-                  style={[
-                    styles.chip,
-                    formData.foodDetails.type === type.value &&
-                      styles.chipSelected,
-                  ]}
-                  textStyle={[
-                    styles.chipText,
-                    formData.foodDetails.type === type.value &&
-                      styles.chipTextSelected,
-                  ]}
-                  selectedColor="#FF8A50"
-                >
-                  {type.icon} {type.label}
-                </Chip>
-              ))}
-            </View>
-
-            {/* Category */}
-            <Text style={styles.label}>Category *</Text>
-            <View style={styles.chipContainer}>
-              {[
-                { value: 'vegetarian', label: 'Vegetarian', icon: '🥗' },
-                { value: 'non_vegetarian', label: 'Non-Veg', icon: '🍗' },
-                { value: 'vegan', label: 'Vegan', icon: '🌱' },
-              ].map((cat) => (
-                <Chip
-                  key={cat.value}
-                  selected={formData.foodDetails.category === cat.value}
-                  onPress={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      foodDetails: { ...prev.foodDetails, category: cat.value },
-                    }))
-                  }
-                  style={[
-                    styles.chip,
-                    formData.foodDetails.category === cat.value &&
-                      styles.chipSelected,
-                  ]}
-                  textStyle={[
-                    styles.chipText,
-                    formData.foodDetails.category === cat.value &&
-                      styles.chipTextSelected,
-                  ]}
-                  selectedColor="#FF8A50"
-                >
-                  {cat.icon} {cat.label}
-                </Chip>
-              ))}
-            </View>
-
-            {/* Quantity & Servings */}
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Quantity *</Text>
-                <TextInput
-                  value={formData.foodDetails.quantity}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      foodDetails: { ...prev.foodDetails, quantity: text },
-                    }))
-                  }
-                  mode="outlined"
-                  style={styles.input}
-                  placeholder="e.g., 10 kg"
-                  activeOutlineColor="#FF8A50"
-                />
+            {/* Step 1: Quick Templates */}
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>1</Text>
+                </View>
+                <Text style={styles.stepTitle}>Choose a template (Optional)</Text>
               </View>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>Servings *</Text>
-                <TextInput
+              <Text style={styles.stepSubtitle}>Quick start with common donation types</Text>
+              
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templateScroll}>
+                {donationTemplates.map((template) => (
+                  <TouchableOpacity
+                    key={template.id}
+                    style={[
+                      styles.templateCard,
+                      selectedTemplate === template.id && styles.templateCardSelected,
+                    ]}
+                    onPress={() => handleTemplateSelect(template)}
+                  >
+                    <Text style={styles.templateIcon}>{template.icon}</Text>
+                    <Text style={styles.templateLabel}>{template.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Step 2: Basic Info */}
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>2</Text>
+                </View>
+                <Text style={styles.stepTitle}>Basic Information</Text>
+              </View>
+
+              <Text style={styles.label}>Donation Title *</Text>
+              <TextInput
+                value={formData.title}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, title: text }))}
+                mode="outlined"
+                style={styles.input}
+                placeholder="E.g., Fresh restaurant meals"
+                activeOutlineColor="#FF8A50"
+              />
+
+              {/* Food Type with Icons */}
+              <Text style={styles.label}>Food Type *</Text>
+              <SegmentedButtons
+                value={formData.foodDetails.type}
+                onValueChange={(value) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    foodDetails: { ...prev.foodDetails, type: value },
+                  }))
+                }
+                buttons={[
+                  { value: 'cooked_meal', label: '🍽️ Cooked', style: styles.segmentButton },
+                  { value: 'raw_ingredients', label: '🥬 Raw', style: styles.segmentButton },
+                  { value: 'packaged_food', label: '📦 Packaged', style: styles.segmentButton },
+                ]}
+                style={styles.segmentedButtons}
+              />
+
+              {/* Category */}
+              <Text style={styles.label}>Category *</Text>
+              <View style={styles.chipContainer}>
+                {[
+                  { value: 'vegetarian', label: '🥗 Vegetarian' },
+                  { value: 'non_vegetarian', label: '🍗 Non-Veg' },
+                  { value: 'vegan', label: '🌱 Vegan' },
+                ].map((cat) => (
+                  <Chip
+                    key={cat.value}
+                    selected={formData.foodDetails.category === cat.value}
+                    onPress={() =>
+                      setFormData(prev => ({
+                        ...prev,
+                        foodDetails: { ...prev.foodDetails, category: cat.value },
+                      }))
+                    }
+                    style={[
+                      styles.chip,
+                      formData.foodDetails.category === cat.value && styles.chipSelected,
+                    ]}
+                    textStyle={[
+                      styles.chipText,
+                      formData.foodDetails.category === cat.value && styles.chipTextSelected,
+                    ]}
+                  >
+                    {cat.label}
+                  </Chip>
+                ))}
+              </View>
+            </View>
+
+            {/* Step 3: Quantity */}
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>3</Text>
+                </View>
+                <Text style={styles.stepTitle}>Quantity & Servings</Text>
+              </View>
+
+              <Text style={styles.label}>Select Quantity *</Text>
+              <View style={styles.quantityGrid}>
+                {quantityOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.quantityCard,
+                      formData.foodDetails.quantity === option.value && styles.quantityCardSelected,
+                    ]}
+                    onPress={() => handleQuantitySelect(option)}
+                  >
+                    <Text style={[
+                      styles.quantityLabel,
+                      formData.foodDetails.quantity === option.value && styles.quantityLabelSelected,
+                    ]}>
+                      {option.label}
+                    </Text>
+                    <Text style={[
+                      styles.quantityServings,
+                      formData.foodDetails.quantity === option.value && styles.quantityServingsSelected,
+                    ]}>
+                      ~{option.servings} servings
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Servings Slider */}
+              <Text style={styles.label}>
+                Fine-tune servings: {formData.foodDetails.estimatedServings} people
+              </Text>
+              <View style={styles.sliderContainer}>
+                <Text style={styles.sliderLabel}>5</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={5}
+                  maximumValue={100}
+                  step={5}
                   value={formData.foodDetails.estimatedServings}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({
+                  onValueChange={(value) =>
+                    setFormData(prev => ({
                       ...prev,
-                      foodDetails: {
-                        ...prev.foodDetails,
-                        estimatedServings: text,
-                      },
+                      foodDetails: { ...prev.foodDetails, estimatedServings: value },
                     }))
                   }
-                  mode="outlined"
-                  keyboardType="numeric"
-                  style={styles.input}
-                  placeholder="e.g., 50"
-                  activeOutlineColor="#FF8A50"
+                  minimumTrackTintColor="#FF8A50"
+                  maximumTrackTintColor="#E2E8F0"
+                  thumbTintColor="#FF8A50"
                 />
+                <Text style={styles.sliderLabel}>100</Text>
               </View>
             </View>
 
-            {/* Description */}
-            <Text style={styles.label}>Description *</Text>
-            <TextInput
-              value={formData.foodDetails.description}
-              onChangeText={(text) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  foodDetails: { ...prev.foodDetails, description: text },
-                }))
-              }
-              mode="outlined"
-              multiline
-              numberOfLines={4}
-              style={styles.textArea}
-              placeholder="Describe the food items in detail..."
-              activeOutlineColor="#FF8A50"
-            />
+            {/* Step 4: Details */}
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>4</Text>
+                </View>
+                <Text style={styles.stepTitle}>Additional Details</Text>
+              </View>
 
-            {/* Food Images */}
-            <Text style={styles.label}>Food Images (Optional)</Text>
-            <View style={styles.imageSection}>
+              {/* Description */}
+              <Text style={styles.label}>Description *</Text>
+              <TextInput
+                value={formData.foodDetails.description}
+                onChangeText={(text) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    foodDetails: { ...prev.foodDetails, description: text },
+                  }))
+                }
+                mode="outlined"
+                multiline
+                numberOfLines={3}
+                style={styles.textArea}
+                placeholder="Describe the food items..."
+                activeOutlineColor="#FF8A50"
+              />
+
+              {/* Allergens with Icons */}
+              <Text style={styles.label}>Contains Allergens? (Select all that apply)</Text>
+              <View style={styles.allergenGrid}>
+                {commonAllergens.map((allergen) => (
+                  <TouchableOpacity
+                    key={allergen.value}
+                    style={[
+                      styles.allergenCard,
+                      selectedAllergens.includes(allergen.value) && styles.allergenCardSelected,
+                    ]}
+                    onPress={() => toggleAllergen(allergen.value)}
+                  >
+                    <Text style={styles.allergenIcon}>{allergen.icon}</Text>
+                    <Text style={[
+                      styles.allergenLabel,
+                      selectedAllergens.includes(allergen.value) && styles.allergenLabelSelected,
+                    ]}>
+                      {allergen.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Storage Instructions */}
+              <Text style={styles.label}>Storage Instructions *</Text>
+              <View style={styles.storageGrid}>
+                {storageOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[
+                      styles.storageCard,
+                      formData.foodDetails.storageInstructions === option.value && styles.storageCardSelected,
+                    ]}
+                    onPress={() =>
+                      setFormData(prev => ({
+                        ...prev,
+                        foodDetails: { ...prev.foodDetails, storageInstructions: option.value },
+                      }))
+                    }
+                  >
+                    <Text style={styles.storageIcon}>{option.icon}</Text>
+                    <Text style={[
+                      styles.storageLabel,
+                      formData.foodDetails.storageInstructions === option.value && styles.storageLabelSelected,
+                    ]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Step 5: Photos */}
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>5</Text>
+                </View>
+                <Text style={styles.stepTitle}>Add Photos (Optional)</Text>
+              </View>
+              <Text style={styles.stepSubtitle}>Photos help NGOs make better decisions</Text>
+
               <View style={styles.imageButtons}>
                 <Button
                   mode="outlined"
@@ -476,7 +630,7 @@ export default function CreateDonation() {
                   style={styles.imageButton}
                   textColor="#FF8A50"
                 >
-                  Choose from Gallery
+                  Choose Photos
                 </Button>
               </View>
 
@@ -502,207 +656,236 @@ export default function CreateDonation() {
                     ))}
                   </ScrollView>
                   <Text style={styles.imageCount}>
-                    {selectedImages.length}/5 images
+                    {selectedImages.length}/5 photos
                   </Text>
                 </View>
               )}
             </View>
 
-            {/* Ingredients */}
-            <Text style={styles.label}>Ingredients (comma separated)</Text>
-            <TextInput
-              value={formData.foodDetails.ingredients}
-              onChangeText={(text) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  foodDetails: { ...prev.foodDetails, ingredients: text },
-                }))
-              }
-              mode="outlined"
-              style={styles.input}
-              placeholder="e.g., rice, vegetables, lentils"
-              activeOutlineColor="#FF8A50"
-            />
-
-            {/* Allergens */}
-            <Text style={styles.label}>Allergens (comma separated)</Text>
-            <TextInput
-              value={formData.foodDetails.allergens}
-              onChangeText={(text) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  foodDetails: { ...prev.foodDetails, allergens: text },
-                }))
-              }
-              mode="outlined"
-              style={styles.input}
-              placeholder="e.g., nuts, dairy, gluten"
-              activeOutlineColor="#FF8A50"
-            />
-
-            {/* Storage Instructions */}
-            <Text style={styles.label}>Storage Instructions</Text>
-            <TextInput
-              value={formData.foodDetails.storageInstructions}
-              onChangeText={(text) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  foodDetails: {
-                    ...prev.foodDetails,
-                    storageInstructions: text,
-                  },
-                }))
-              }
-              mode="outlined"
-              style={styles.input}
-              placeholder="e.g., Keep refrigerated"
-              activeOutlineColor="#FF8A50"
-            />
-
-            {/* Expiry Date/Time */}
-            <Text style={styles.label}>Expiry Date/Time *</Text>
-            <TextInput
-              value={formData.expiryDateTime}
-              onChangeText={(text) =>
-                setFormData((prev) => ({ ...prev, expiryDateTime: text }))
-              }
-              mode="outlined"
-              style={styles.input}
-              placeholder="YYYY-MM-DD HH:MM (e.g., 2024-01-20 18:00)"
-              activeOutlineColor="#FF8A50"
-            />
-            <Text style={styles.helperText}>
-              💡 Enter the date and time when the food expires
-            </Text>
-
-            {/* Pickup Location */}
-            <Text style={styles.sectionTitle}>📍 Pickup Location</Text>
-
-            <Text style={styles.label}>Street Address *</Text>
-            <TextInput
-              value={formData.pickupLocation.address}
-              onChangeText={(text) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  pickupLocation: { ...prev.pickupLocation, address: text },
-                }))
-              }
-              mode="outlined"
-              style={styles.input}
-              placeholder="e.g., 123 Main Street"
-              activeOutlineColor="#FF8A50"
-            />
-
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>City</Text>
-                <TextInput
-                  value={formData.pickupLocation.city}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      pickupLocation: { ...prev.pickupLocation, city: text },
-                    }))
-                  }
-                  mode="outlined"
-                  style={styles.input}
-                  placeholder="Colombo"
-                  activeOutlineColor="#FF8A50"
-                />
+            {/* Step 6: Expiry & Urgency */}
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>6</Text>
+                </View>
+                <Text style={styles.stepTitle}>Expiry & Urgency</Text>
               </View>
-              <View style={styles.halfInput}>
-                <Text style={styles.label}>State</Text>
-                <TextInput
-                  value={formData.pickupLocation.state}
-                  onChangeText={(text) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      pickupLocation: { ...prev.pickupLocation, state: text },
-                    }))
-                  }
-                  mode="outlined"
-                  style={styles.input}
-                  placeholder="Western"
-                  activeOutlineColor="#FF8A50"
-                />
-              </View>
-            </View>
 
-            <Text style={styles.label}>Zip Code</Text>
-            <TextInput
-              value={formData.pickupLocation.zipCode}
-              onChangeText={(text) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  pickupLocation: { ...prev.pickupLocation, zipCode: text },
-                }))
-              }
-              mode="outlined"
-              keyboardType="numeric"
-              style={styles.input}
-              placeholder="00100"
-              activeOutlineColor="#FF8A50"
-            />
-
-            {/* Urgency */}
-            <Text style={styles.label}>Urgency Level *</Text>
-            <View style={styles.chipContainer}>
-              {[
-                { value: 'low', label: 'Low', color: '#10B981' },
-                { value: 'medium', label: 'Medium', color: '#F59E0B' },
-                { value: 'high', label: 'High', color: '#EF4444' },
-                { value: 'urgent', label: 'Urgent', color: '#DC2626' },
-              ].map((urg) => (
-                <Chip
-                  key={urg.value}
-                  selected={formData.pickupSchedule.urgency === urg.value}
-                  onPress={() =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      pickupSchedule: {
-                        ...prev.pickupSchedule,
-                        urgency: urg.value as any,
-                      },
-                    }))
-                  }
-                  style={[
-                    styles.chip,
-                    formData.pickupSchedule.urgency === urg.value && {
-                      backgroundColor: urg.color,
-                    },
-                  ]}
-                  textStyle={[
-                    styles.chipText,
-                    formData.pickupSchedule.urgency === urg.value && {
-                      color: '#FFFFFF',
-                    },
-                  ]}
+              {/* Date & Time Pickers */}
+              <Text style={styles.label}>Food expires on *</Text>
+              <View style={styles.dateTimeContainer}>
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => setShowDatePicker(true)}
                 >
-                  {urg.label}
-                </Chip>
-              ))}
+                  <IconButton icon="calendar" size={20} iconColor="#FF8A50" />
+                  <Text style={styles.dateTimeText}>
+                    {expiryDate.toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.dateTimeButton}
+                  onPress={() => setShowTimePicker(true)}
+                >
+                  <IconButton icon="clock-outline" size={20} iconColor="#FF8A50" />
+                  <Text style={styles.dateTimeText}>
+                    {expiryDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {showDatePicker && (
+                <DateTimePicker
+                  value={expiryDate}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                />
+              )}
+
+              {showTimePicker && (
+                <DateTimePicker
+                  value={expiryDate}
+                  mode="time"
+                  display="default"
+                  onChange={handleTimeChange}
+                />
+              )}
+
+              {/* Urgency */}
+              <Text style={styles.label}>Urgency Level *</Text>
+              <View style={styles.urgencyGrid}>
+                {[
+                  { value: 'low', label: 'Low', color: '#10B981', icon: '🟢', desc: 'Can wait' },
+                  { value: 'medium', label: 'Medium', color: '#F59E0B', icon: '🟡', desc: 'Soon' },
+                  { value: 'high', label: 'High', color: '#EF4444', icon: '🟠', desc: 'Today' },
+                  { value: 'urgent', label: 'Urgent', color: '#DC2626', icon: '🔴', desc: 'ASAP!' },
+                ].map((urg) => (
+                  <TouchableOpacity
+                    key={urg.value}
+                    style={[
+                      styles.urgencyCard,
+                      formData.pickupSchedule.urgency === urg.value && {
+                        borderColor: urg.color,
+                        borderWidth: 3,
+                        backgroundColor: `${urg.color}10`,
+                      },
+                    ]}
+                    onPress={() =>
+                      setFormData(prev => ({
+                        ...prev,
+                        pickupSchedule: {
+                          ...prev.pickupSchedule,
+                          urgency: urg.value as any,
+                        },
+                      }))
+                    }
+                  >
+                    <Text style={styles.urgencyIcon}>{urg.icon}</Text>
+                    <Text style={[
+                      styles.urgencyLabel,
+                      formData.pickupSchedule.urgency === urg.value && { color: urg.color, fontWeight: '700' },
+                    ]}>
+                      {urg.label}
+                    </Text>
+                    <Text style={styles.urgencyDesc}>{urg.desc}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
-            {/* Special Instructions */}
-            <Text style={styles.label}>Special Pickup Instructions</Text>
-            <TextInput
-              value={formData.pickupSchedule.specialInstructions}
-              onChangeText={(text) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  pickupSchedule: {
-                    ...prev.pickupSchedule,
-                    specialInstructions: text,
-                  },
-                }))
-              }
-              mode="outlined"
-              multiline
-              numberOfLines={3}
-              style={styles.textArea}
-              placeholder="Any special requirements for pickup..."
-              activeOutlineColor="#FF8A50"
-            />
+            {/* Step 7: Location */}
+            <View style={styles.stepContainer}>
+              <View style={styles.stepHeader}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>7</Text>
+                </View>
+                <Text style={styles.stepTitle}>Pickup Location</Text>
+              </View>
+
+              {authState.user?.address && typeof authState.user.address === 'object' && formData.pickupLocation.address === '' && (
+                <View style={styles.savedAddressCard}>
+                  <IconButton icon="map-marker" size={24} iconColor="#FF8A50" />
+                  <View style={styles.savedAddressContent}>
+                    <Text style={styles.savedAddressLabel}>Using saved address</Text>
+                    <Text style={styles.savedAddressText}>
+                      {`${authState.user.address.street || ''}, ${authState.user.address.city || ''}, ${authState.user.address.state || ''} ${authState.user.address.zipCode || ''}`}
+                    </Text>
+                  </View>
+                  <Button 
+                    mode="text" 
+                    textColor="#FF8A50" 
+                    onPress={() => {
+                      Alert.alert('Change Address', 'Would you like to use a different address for this donation?', [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Use Different Address', 
+                          onPress: () => {
+                            setFormData(prev => ({
+                              ...prev,
+                              pickupLocation: {
+                                address: 'custom',
+                                city: '',
+                                state: '',
+                                zipCode: '',
+                              }
+                            }));
+                          }
+                        }
+                      ]);
+                    }}
+                  >
+                    Change
+                  </Button>
+                </View>
+              )}
+
+              {(!authState.user?.address || typeof authState.user.address !== 'object' || formData.pickupLocation.address !== '') && (
+                <>
+                  <Text style={styles.label}>Street Address *</Text>
+                  <TextInput
+                    value={formData.pickupLocation.address}
+                    onChangeText={(text) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        pickupLocation: { ...prev.pickupLocation, address: text },
+                      }))
+                    }
+                    mode="outlined"
+                    style={styles.input}
+                    placeholder="E.g., 123 Main Street"
+                    activeOutlineColor="#FF8A50"
+                  />
+
+                  <View style={styles.addressRow}>
+                    <TextInput
+                      label="City *"
+                      value={formData.pickupLocation.city}
+                      onChangeText={(text) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          pickupLocation: { ...prev.pickupLocation, city: text },
+                        }))
+                      }
+                      mode="outlined"
+                      style={[styles.input, styles.addressInput]}
+                      activeOutlineColor="#FF8A50"
+                    />
+                    <TextInput
+                      label="State *"
+                      value={formData.pickupLocation.state}
+                      onChangeText={(text) =>
+                        setFormData(prev => ({
+                          ...prev,
+                          pickupLocation: { ...prev.pickupLocation, state: text },
+                        }))
+                      }
+                      mode="outlined"
+                      style={[styles.input, styles.addressInput]}
+                      activeOutlineColor="#FF8A50"
+                    />
+                  </View>
+
+                  <TextInput
+                    label="ZIP Code *"
+                    value={formData.pickupLocation.zipCode}
+                    onChangeText={(text) =>
+                      setFormData(prev => ({
+                        ...prev,
+                        pickupLocation: { ...prev.pickupLocation, zipCode: text },
+                      }))
+                    }
+                    mode="outlined"
+                    keyboardType="numeric"
+                    style={styles.input}
+                    activeOutlineColor="#FF8A50"
+                  />
+                </>
+              )}
+
+              {/* Special Instructions */}
+              <Text style={styles.label}>Pickup Instructions (Optional)</Text>
+              <TextInput
+                value={formData.pickupSchedule.specialInstructions}
+                onChangeText={(text) =>
+                  setFormData(prev => ({
+                    ...prev,
+                    pickupSchedule: {
+                      ...prev.pickupSchedule,
+                      specialInstructions: text,
+                    },
+                  }))
+                }
+                mode="outlined"
+                multiline
+                numberOfLines={2}
+                style={styles.textArea}
+                placeholder="E.g., Use back entrance, ring bell..."
+                activeOutlineColor="#FF8A50"
+              />
+            </View>
 
             {/* Submit Button */}
             <Button
@@ -727,11 +910,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7FAFC',
   },
+  addressInput: {
+    flex: 1,
+    marginRight: 0,
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 40,
   },
   header: {
     paddingHorizontal: 20,
@@ -740,6 +927,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
+  },
+  addressRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
   },
   backButton: {
     fontSize: 16,
@@ -762,6 +954,68 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderRadius: 12,
   },
+  stepContainer: {
+    marginBottom: 32,
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  stepBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FF8A50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  stepBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  stepTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3748',
+  },
+  stepSubtitle: {
+    fontSize: 14,
+    color: '#718096',
+    marginBottom: 16,
+    marginLeft: 44,
+  },
+  templateScroll: {
+    marginTop: 8,
+  },
+  templateCard: {
+    width: 120,
+    height: 100,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    padding: 12,
+  },
+  templateCardSelected: {
+    borderColor: '#FF8A50',
+    backgroundColor: '#FFF5F0',
+  },
+  templateIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  templateLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2D3748',
+    textAlign: 'center',
+  },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -770,19 +1024,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   input: {
-    marginBottom: 4,
+    marginBottom: 12,
     backgroundColor: '#FFFFFF',
   },
   textArea: {
-    marginBottom: 4,
-    backgroundColor: '#FFFFFF',
-    minHeight: 100,
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#718096',
     marginBottom: 12,
-    marginTop: 4,
+    backgroundColor: '#FFFFFF',
+    minHeight: 80,
+  },
+  segmentedButtons: {
+    marginBottom: 16,
+  },
+  segmentButton: {
+    borderColor: '#FF8A50',
   },
   chipContainer: {
     flexDirection: 'row',
@@ -806,22 +1060,123 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  row: {
+  quantityGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2D3748',
-    marginTop: 20,
-    marginBottom: 12,
-  },
-  imageSection: {
     marginBottom: 16,
+  },
+  quantityCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    alignItems: 'center',
+  },
+  quantityCardSelected: {
+    borderColor: '#FF8A50',
+    backgroundColor: '#FFF5F0',
+  },
+  quantityLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  quantityLabelSelected: {
+    color: '#FF8A50',
+  },
+  quantityServings: {
+    fontSize: 12,
+    color: '#718096',
+  },
+  quantityServingsSelected: {
+    color: '#FF8A50',
+  },
+  sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+  },
+  slider: {
+    flex: 1,
+    height: 40,
+  },
+  sliderLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#718096',
+  },
+  allergenGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  allergenCard: {
+    width: '22%',
+    aspectRatio: 1,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  allergenCardSelected: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFF9E6',
+  },
+  allergenIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  allergenLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#2D3748',
+    textAlign: 'center',
+  },
+  allergenLabelSelected: {
+    color: '#F59E0B',
+  },
+  storageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  storageCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    alignItems: 'center',
+  },
+  storageCardSelected: {
+    borderColor: '#3B82F6',
+    backgroundColor: '#EFF6FF',
+  },
+  storageIcon: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
+  storageLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2D3748',
+    textAlign: 'center',
+  },
+  storageLabelSelected: {
+    color: '#3B82F6',
   },
   imageButtons: {
     flexDirection: 'row',
@@ -871,6 +1226,79 @@ const styles = StyleSheet.create({
     color: '#718096',
     marginTop: 8,
     textAlign: 'center',
+  },
+  dateTimeContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  dateTimeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F7FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingRight: 16,
+  },
+  dateTimeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+  },
+  urgencyGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  urgencyCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    alignItems: 'center',
+  },
+  urgencyIcon: {
+    fontSize: 28,
+    marginBottom: 8,
+  },
+  urgencyLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  urgencyDesc: {
+    fontSize: 11,
+    color: '#718096',
+  },
+  savedAddressCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#10B981',
+    padding: 12,
+    marginBottom: 16,
+  },
+  savedAddressContent: {
+    flex: 1,
+  },
+  savedAddressLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#10B981',
+    marginBottom: 4,
+  },
+  savedAddressText: {
+    fontSize: 13,
+    color: '#2D3748',
   },
   submitButton: {
     marginTop: 24,

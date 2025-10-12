@@ -25,6 +25,13 @@ export default function DonorLayout() {
             title: 'New Donation',
           }}
         />
+        <Stack.Screen
+          name="donation-success"
+          options={{
+            presentation: 'card',
+            gestureEnabled: false,
+          }}
+        />
         <Stack.Screen name="recurring" />
         <Stack.Screen name="history" />
         <Stack.Screen name="receipts" />

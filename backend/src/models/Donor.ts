@@ -235,6 +235,20 @@ DonorSchema.virtual('fullAddress').get(function() {
   return `${addr.street}, ${addr.city}, ${addr.state} ${addr.zipCode}, ${addr.country}`;
 });
 
+// Virtual for rating (for easier access in populate)
+DonorSchema.virtual('rating').get(function() {
+  return this.stats?.averageRating || 0;
+});
+
+// Virtual for total donations (for easier access in populate)
+DonorSchema.virtual('totalDonations').get(function() {
+  return this.stats?.totalDonations || 0;
+});
+
+// Ensure virtuals are included in JSON and object outputs
+DonorSchema.set('toJSON', { virtuals: true });
+DonorSchema.set('toObject', { virtuals: true });
+
 export type DonorDocument = InferSchemaType<typeof DonorSchema> & { 
   _id: mongoose.Types.ObjectId;
   comparePassword: (password: string) => Promise<boolean>;
@@ -243,6 +257,8 @@ export type DonorDocument = InferSchemaType<typeof DonorSchema> & {
   generatePasswordResetToken: () => string;
   cleanExpiredTokens: () => void;
   fullAddress: string;
+  rating: number;
+  totalDonations: number;
 };
 
 export const DonorModel = mongoose.model<DonorDocument>('Donor', DonorSchema);

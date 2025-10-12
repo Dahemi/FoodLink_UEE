@@ -56,6 +56,7 @@ export default function NGOHome() {
   const [loading, setLoading] = useState(true);
   const [recentDonations, setRecentDonations] = useState<RecentDonation[]>([]);
   const [totalAvailableDonations, setTotalAvailableDonations] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   // Dummy data for requirements (keep for now)
   const [requirements] = useState<Requirement[]>([
@@ -135,27 +136,44 @@ export default function NGOHome() {
 
       if (!NGODonationApi.isEnabled()) {
         console.error('NGO Donation API not enabled - API_URL missing');
-        Alert.alert('Configuration Error', 'API URL is not configured. Please check your .env file.');
+        setError('API not configured');
         setLoading(false);
         return;
       }
 
       console.log('Calling NGODonationApi.getAvailableDonations...');
       const response = await NGODonationApi.getAvailableDonations({
-        status: 'available', // Only fetch available donations
+        status: 'available',
         limit: 5,
         page: 1,
       });
 
       console.log('Donations fetched successfully:', {
         count: response.donations.length,
-        total: response.pagination.total
+        total: response.pagination.total,
+        donations: response.donations.map(d => ({
+          id: d._id,
+          title: d.title,
+          status: d.status,
+          donorId: typeof d.donorId === 'object' ? d.donorId._id : d.donorId
+        }))
       });
 
       // Filter out claimed donations (extra safety check)
       const availableDonations = response.donations.filter(
         donation => donation.status === 'available'
       );
+
+      console.log('Available donations after filter:', availableDonations.length);
+
+      if (availableDonations.length === 0) {
+        console.log('No available donations found');
+        setRecentDonations([]);
+        setTotalAvailableDonations(0);
+        setError(null);
+        setLoading(false);
+        return;
+      }
 
       // Transform API response to match RecentDonation interface
       const transformedDonations: RecentDonation[] = availableDonations.map((donation) => {
@@ -166,32 +184,44 @@ export default function NGOHome() {
         const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
         const diffDays = Math.floor(diffHours / 24);
         
-        let expiryTime = '';
-        if (diffHours < 0) {
-          expiryTime = 'Expired';
+        let expiryTime: string;
+        if (diffHours < 1) {
+          expiryTime = 'Less than 1 hour';
         } else if (diffHours < 24) {
-          expiryTime = `${diffHours}h`;
+          expiryTime = `${diffHours} hours`;
         } else {
-          expiryTime = `${diffDays}d ${diffHours % 24}h`;
+          expiryTime = `${diffDays} days`;
         }
 
         // Determine urgency based on expiry time
-        let urgency: 'low' | 'medium' | 'high' | 'urgent' = 'low';
-        if (diffHours < 0) {
-          urgency = 'low';
-        } else if (diffHours < 6) {
+        let urgency: 'low' | 'medium' | 'high' | 'urgent' = 'medium';
+        if (diffHours < 2) {
           urgency = 'urgent';
-        } else if (diffHours < 12) {
+        } else if (diffHours < 6) {
           urgency = 'high';
         } else if (diffHours < 24) {
           urgency = 'medium';
+        } else {
+          urgency = 'low';
         }
 
         // Get donor name - handle both populated and non-populated donorId
-        let donorName = 'Donor';
-        if (typeof donation.donorId === 'object' && donation.donorId !== null) {
-          donorName = donation.donorId.businessName || donation.donorId.name || 'Donor';
+        let donorName = 'Unknown Donor';
+        if (donation.donorId) {
+          if (typeof donation.donorId === 'object' && donation.donorId !== null) {
+            donorName = donation.donorId.businessName || donation.donorId.name || 'Donor';
+          } else {
+            donorName = 'Donor';
+          }
         }
+
+        console.log('Transformed donation:', {
+          id: donation._id,
+          title: donation.title,
+          donorName,
+          urgency,
+          expiryTime
+        });
 
         return {
           id: donation._id,
@@ -201,23 +231,31 @@ export default function NGOHome() {
           servings: donation.foodDetails.estimatedServings,
           urgency: urgency,
           expiryTime: expiryTime,
-          distance: undefined, // Calculate distance if you have NGO location
+          distance: undefined,
         };
       });
 
+      console.log('Final transformed donations:', transformedDonations.length);
+
       setRecentDonations(transformedDonations);
       setTotalAvailableDonations(response.pagination.total);
+      setError(null);
       
       console.log('=== Donation fetch completed successfully ===');
     } catch (error) {
       console.error('=== Error fetching donations ===');
+      console.error('Error type:', error?.constructor?.name);
       console.error('Error details:', error);
       console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
       
+      setError(error instanceof Error ? error.message : 'Failed to load donations');
+      setRecentDonations([]);
+      
       Alert.alert(
         'Error Loading Donations',
-        'Failed to load donations. You may need to log out and log in again.',
+        'Failed to load donations. Please check your connection and try again.',
         [
+          { text: 'Retry', onPress: () => fetchDonations() },
           { text: 'OK' }
         ]
       );
@@ -227,8 +265,12 @@ export default function NGOHome() {
   };
 
   useEffect(() => {
-    fetchDonations();
-  }, []);
+    if (authState.isAuthenticated && authState.user) {
+      fetchDonations();
+    } else {
+      setLoading(false);
+    }
+  }, [authState.isAuthenticated]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -354,15 +396,32 @@ export default function NGOHome() {
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent Available Donations</Text>
         <Button mode="text" textColor="#FF8A50" onPress={() => router.push('/NGO/donations')}>
-          View All
+          View All ({totalAvailableDonations})
         </Button>
       </View>
-      {recentDonations.length === 0 ? (
+      
+      {loading && recentDonations.length === 0 ? (
+        <Card style={styles.emptyCard}>
+          <Card.Content>
+            <LoadingSpinner message="Loading donations..." size="small" color="#FF8A50" />
+          </Card.Content>
+        </Card>
+      ) : error ? (
+        <Card style={styles.emptyCard}>
+          <Card.Content>
+            <MaterialCommunityIcons name="alert-circle" size={48} color="#F44336" style={{ alignSelf: 'center', marginBottom: 8 }} />
+            <Text style={styles.emptyText}>{error}</Text>
+            <Button mode="outlined" onPress={fetchDonations} style={{ marginTop: 12 }}>
+              Retry
+            </Button>
+          </Card.Content>
+        </Card>
+      ) : recentDonations.length === 0 ? (
         <Card style={styles.emptyCard}>
           <Card.Content>
             <MaterialCommunityIcons name="food-off" size={48} color="#CBD5E0" style={{ alignSelf: 'center', marginBottom: 8 }} />
             <Text style={styles.emptyText}>No donations available at the moment</Text>
-            <Text style={styles.emptySubtext}>Check back later for new donations</Text>
+            <Text style={styles.emptySubtext}>New donations will appear here when donors post them</Text>
           </Card.Content>
         </Card>
       ) : (
