@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Chip, Searchbar, IconButton, Avatar } from 'react-native-paper';
+import { Card, Chip, Searchbar, IconButton, Avatar, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
@@ -62,6 +62,7 @@ export default function BeneficiaryDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState('home');
+  const [showFilters, setShowFilters] = useState(false);
 
   const userCoords = authState.user?.address?.coordinates ?? { latitude: 6.9271, longitude: 79.8612 };
 
@@ -76,26 +77,53 @@ export default function BeneficiaryDashboard() {
   };
 
   const renderHeader = () => (
-    <View style={styles.headerRow}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+    <View style={styles.header}>
+      <View style={styles.headerLeftRow}>
         <Avatar.Text
           size={48}
           label={getInitials(authState.user?.name)}
           style={styles.avatar}
         />
-        <View style={styles.headerInfo}>
+        <View style={styles.headerText}>
           <Text style={styles.greeting}>Hello, {authState.user?.name?.split(' ')[0] || 'Member'}! 👋</Text>
           <Text style={styles.location}>📍 {authState.user?.address?.city ?? 'Colombo'}</Text>
         </View>
       </View>
 
-      <View style={styles.headerRight}>
-        <IconButton
-          icon="map-marker"
-          size={22}
-          iconColor="#2D3748"
-          onPress={() => router.push('/beneficiary/map')}
+      <IconButton
+        icon="map-marker"
+        size={22}
+        iconColor="#2D3748"
+        onPress={() => router.push('/beneficiary/map')}
+        style={styles.notificationIcon}
+      />
+    </View>
+  );
+
+  const renderTitleAndSearch = () => (
+    <View style={styles.titleSearchContainer}>
+      <View style={styles.titleRow}>
+        <Text style={styles.pageTitle}>Food Distributions</Text>
+        <Text style={styles.pageSubtitle}>Find nearby distribution points and schedules</Text>
+      </View>
+
+      <View style={styles.searchFilterRow}>
+        <Searchbar
+          placeholder="Search food points..."
+          onChangeText={setQuery}
+          value={query}
+          style={styles.searchBar}
+          inputStyle={styles.searchInput}
         />
+
+        <Button
+          mode="outlined"
+          onPress={() => setShowFilters(true)}
+          style={styles.filterButton}
+          contentStyle={{ flexDirection: 'row-reverse' }}
+        >
+          Filter
+        </Button>
       </View>
     </View>
   );
@@ -259,6 +287,8 @@ export default function BeneficiaryDashboard() {
   return (
     <SafeAreaView style={styles.container}>
       {renderHeader()}
+      {renderTitleAndSearch()}
+
       <ScrollView
         contentContainerStyle={styles.listContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -298,43 +328,70 @@ export default function BeneficiaryDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12 },
-  title: { fontSize: 18, fontWeight: '600', color: '#2D3748' },
-  search: { margin: 12, marginBottom: 4 },
+
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  headerLeftRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  headerText: { marginLeft: 12, flex: 1 },
+  greeting: { fontSize: 16, color: '#718096' },
+  location: { fontSize: 12, color: '#718096', marginTop: 2 },
+  notificationIcon: { marginLeft: 8 },
+
+  titleSearchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+    backgroundColor: '#F7FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEF2F7',
+  },
+  titleRow: { marginBottom: 10 },
+  pageTitle: { fontSize: 20, fontWeight: '700', color: '#2D3748' },
+  pageSubtitle: { fontSize: 13, color: '#718096', marginTop: 4 },
+
+  searchFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  searchBar: {
+    flex: 1,
+    elevation: 0,
+    backgroundColor: '#FFFFFF',
+  },
+  searchInput: {
+    fontSize: 14,
+  },
+  filterButton: {
+    marginLeft: 8,
+    borderColor: '#E2E8F0',
+  },
+
   listContainer: { paddingHorizontal: 12, paddingBottom: 24 },
   card: { marginVertical: 6, borderRadius: 10, backgroundColor: '#FFF8F0' },
   cardContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12 },
   left: { flexDirection: 'row', alignItems: 'center' },
   iconWrap: { width: 42, height: 42, borderRadius: 10, backgroundColor: '#FFF0E6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   icon: { fontSize: 20 },
-  info: { maxWidth: width * 0.55 },
+  info: { maxWidth: 220 },
   name: { fontSize: 16, fontWeight: '600', color: '#2D3748' },
   sub: { fontSize: 12, color: '#718096', marginTop: 4 },
   right: { alignItems: 'flex-end' },
+
   openChip: { backgroundColor: '#FFF4EB', borderColor: '#FF8A50', borderWidth: 0.5 },
   pickupChip: { backgroundColor: '#FFF8E6', borderColor: '#FFC107', borderWidth: 0.5 },
   closedChip: { backgroundColor: '#FFF1F0', borderColor: '#F44336', borderWidth: 0.5 },
   chipText: { color: '#2D3748', fontSize: 12 },
+
   empty: { padding: 40, alignItems: 'center' },
   emptyText: { color: '#718096' },
-  avatar: {
-    backgroundColor: '#FF8A50',
-  },
-  headerInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2D3748',
-  },
-  location: {
-    fontSize: 12,
-    color: '#718096',
-    marginTop: 2,
-  },
-  headerRight: {
-    marginLeft: 8,
-  },
+
+  avatar: { backgroundColor: '#FF8A50' },
 });
