@@ -167,7 +167,7 @@ export default function TaskCard({
             <Chip 
               mode="outlined" 
               textStyle={[styles.priorityText, { color: getPriorityColor(task.priority) }]}
-              style={[styles.priorityChip, { borderColor: getPriorityColor(task.priority) }]}
+              style={[styles.priorityChip, { borderColor: getPriorityColor(task.priority), marginBottom: 4 }]}
             >
               {task.priority.toUpperCase()}
             </Chip>
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
-    minHeight: 60,
+    minHeight: 65,
   },
   headerLeft: {
     flex: 1,
@@ -296,24 +296,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   priorityChip: {
-    height: 28,
-    minHeight: 28,
-    paddingVertical: 2,
+    height: 30,
+    minHeight: 30,
   },
   priorityText: {
     fontSize: 10,
     fontWeight: '600',
-    lineHeight: 14,
   },
   statusChip: {
-    height: 28,
-    minHeight: 28,
-    paddingVertical: 2,
+    height: 30,
+    minHeight: 30,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '600',
-    lineHeight: 14,
   },
   foodDetails: {
     flexDirection: 'row',

@@ -116,26 +116,38 @@ router.patch('/tasks/:id/status', authenticateToken, async (req, res, next) => {
       return res.status(404).json({ message: 'Not found' });
     }
     
-    // Update corresponding donation status based on task status
-    if (status === 'in_progress') {
-      // When volunteer starts the task (picks up), update donation to 'picked_up'
-      if (task.originalDonationId) {
-        await DonationModel.findByIdAndUpdate(task.originalDonationId, { 
-          status: 'picked_up',
-          actualPickupTime: new Date()
-        });
-        console.log('Updated donation status to picked_up for donation:', task.originalDonationId);
-      }
-    } else if (status === 'completed') {
-      // When volunteer completes the task (delivers), update donation to 'delivered'
-      if (task.originalDonationId) {
-        await DonationModel.findByIdAndUpdate(task.originalDonationId, { 
-          status: 'delivered',
-          deliveredAt: new Date()
-        });
-        console.log('Updated donation status to delivered for donation:', task.originalDonationId);
-      }
-    }
+     // Update corresponding donation status based on task status
+     if (status === 'in_progress') {
+       // When volunteer starts the task (picks up), update donation to 'picked_up'
+       if (task.donationId) {
+         console.log('Updating donation to picked_up:', task.donationId);
+         const result = await DonationModel.findByIdAndUpdate(task.donationId, { 
+           status: 'picked_up',
+           actualPickupTime: new Date()
+         });
+         console.log('Donation update result:', result ? 'Success' : 'Failed');
+       } else {
+         console.log('⚠️  WARNING: No donationId found in task - this is an old task created before donationId field was added');
+         console.log('Task details:', { id: task._id, status: task.status, createdAt: task.createdAt });
+         // For old tasks, we can't update the donation status automatically
+         // The volunteer will need to manually track this
+       }
+     } else if (status === 'completed') {
+       // When volunteer completes the task (delivers), update donation to 'delivered'
+       if (task.donationId) {
+         console.log('Updating donation to delivered:', task.donationId);
+         const result = await DonationModel.findByIdAndUpdate(task.donationId, { 
+           status: 'delivered',
+           deliveredAt: new Date()
+         });
+         console.log('Donation update result:', result ? 'Success' : 'Failed');
+       } else {
+         console.log('⚠️  WARNING: No donationId found in task - this is an old task created before donationId field was added');
+         console.log('Task details:', { id: task._id, status: task.status, createdAt: task.createdAt });
+         // For old tasks, we can't update the donation status automatically
+         // The volunteer will need to manually track this
+       }
+     }
     
     console.log('Task updated successfully:', task._id);
     
@@ -329,37 +341,37 @@ router.post('/accept-donation', authenticateToken, async (req, res, next) => {
       });
     }
     
-    // Create a volunteer task
-    const taskData = {
-      donorInfo: {
-        name: donation.donorId?.name || 'Unknown',
-        address: donation.pickupLocation?.address || 'Address not available',
-        phone: donation.donorId?.phone || 'Phone not available',
-        contactPerson: donation.donorId?.name || 'Contact person not available'
-      },
-      ngoInfo: {
-        name: donation.claimedBy?.name || 'NGO not available',
-        address: donation.claimedBy?.address?.street ? 
-          `${donation.claimedBy.address.street}, ${donation.claimedBy.address.city}, ${donation.claimedBy.address.state}` : 
-          'Address not available',
-        phone: donation.claimedBy?.phone || 'Phone not available',
-        contactPerson: donation.claimedBy?.name || 'Contact person not available'
-      },
-      foodDetails: JSON.stringify({
-        type: donation.foodDetails?.type || 'Food',
-        quantity: donation.foodDetails?.quantity || 'Unknown quantity',
-        expiryTime: donation.expiryDateTime || new Date().toISOString(),
-        specialInstructions: donation.pickupSchedule?.specialInstructions || ''
-      }),
-      pickupTime: donation.pickupSchedule?.availableFrom || new Date().toISOString(),
-      deliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
-      status: 'accepted',
-      priority: donation.pickupSchedule?.urgency === 'urgent' ? 'high' : 'medium', // Map urgent to high
-      distance: 'Calculating...',
-      estimatedDuration: '30-45 minutes',
-      // Store the original donation ID for status updates
-      originalDonationId: donationId
-    };
+     // Create a volunteer task
+     const taskData = {
+       donorInfo: {
+         name: donation.donorId?.name || 'Unknown',
+         address: donation.pickupLocation?.address || 'Address not available',
+         phone: donation.donorId?.phone || 'Phone not available',
+         contactPerson: donation.donorId?.name || 'Contact person not available'
+       },
+       ngoInfo: {
+         name: donation.claimedBy?.name || 'NGO not available',
+         address: donation.claimedBy?.address?.street ? 
+           `${donation.claimedBy.address.street}, ${donation.claimedBy.address.city}, ${donation.claimedBy.address.state}` : 
+           'Address not available',
+         phone: donation.claimedBy?.phone || 'Phone not available',
+         contactPerson: donation.claimedBy?.name || 'Contact person not available'
+       },
+       foodDetails: JSON.stringify({
+         type: donation.foodDetails?.type || 'Food',
+         quantity: donation.foodDetails?.quantity || 'Unknown quantity',
+         expiryTime: donation.expiryDateTime || new Date().toISOString(),
+         specialInstructions: donation.pickupSchedule?.specialInstructions || ''
+       }),
+       pickupTime: donation.pickupSchedule?.availableFrom || new Date().toISOString(),
+       deliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+       status: 'accepted',
+       priority: donation.pickupSchedule?.urgency === 'urgent' ? 'high' : 'medium', // Map urgent to high
+       distance: 'Calculating...',
+       estimatedDuration: '30-45 minutes',
+       // Store the original donation ID for status updates
+       donationId: donationId
+     };
     
     // Create the task using the existing TaskModel
     const task = await TaskModel.create(taskData);

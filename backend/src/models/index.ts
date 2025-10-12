@@ -44,12 +44,7 @@ const LegacyTaskSchema = new Schema({
     phone: String,
     contactPerson: String,
   },
-  foodDetails: {
-    type: String,
-    quantity: String,
-    expiryTime: String,
-    specialInstructions: String,
-  },
+  foodDetails: String, // Changed to String to match actual storage
   pickupTime: String,
   deliveryTime: String,
   status: { 
@@ -64,10 +59,12 @@ const LegacyTaskSchema = new Schema({
   },
   distance: String,
   estimatedDuration: String,
-  originalDonationId: {
+  // Add reference to the original donation
+  donationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Donation',
-  },
+    required: false // Make it optional for backward compatibility
+  }
 }, { timestamps: true });
 
 export const TaskModel = mongoose.model('LegacyTask', LegacyTaskSchema);
