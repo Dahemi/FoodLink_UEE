@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  Switch,
-  Alert,
-  StyleSheet,
-} from 'react-native';
+   View,
+   Text,
+   TouchableOpacity,
+   Modal,
+   FlatList,
+   Switch,
+   Alert,
+   StyleSheet,
+ } from 'react-native';
 import { Avatar, Divider, Card, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -18,6 +17,7 @@ import LoadingSpinner from '../../components/LoadingSpinner';
 import { FoodPointReminderService } from '../../services/foodPointReminderService';
 import { useAuth } from '../../context/AuthContext';
 import { profileStyles } from '../../styles/beneficiary/profileStyles';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function BeneficiaryProfile() {
   const router = useRouter();
@@ -116,8 +116,8 @@ export default function BeneficiaryProfile() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView style={styles.content} contentContainerStyle={{ paddingTop: 8 }}>
         {/* Profile Header */}
         <View style={styles.header}>
           <Avatar.Text 
