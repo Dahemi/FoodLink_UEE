@@ -273,13 +273,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+    minHeight: 60,
   },
   headerLeft: {
     flex: 1,
+    marginRight: 8,
   },
   headerRight: {
     alignItems: 'flex-end',
     gap: 4,
+    flexShrink: 0,
   },
   donorName: {
     fontSize: 18,
@@ -293,18 +296,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   priorityChip: {
-    height: 24,
+    height: 28,
+    minHeight: 28,
+    paddingVertical: 2,
   },
   priorityText: {
     fontSize: 10,
     fontWeight: '600',
+    lineHeight: 14,
   },
   statusChip: {
-    height: 24,
+    height: 28,
+    minHeight: 28,
+    paddingVertical: 2,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '600',
+    lineHeight: 14,
   },
   foodDetails: {
     flexDirection: 'row',
