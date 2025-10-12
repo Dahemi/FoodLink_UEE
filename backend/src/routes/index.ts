@@ -9,6 +9,7 @@ import volunteerTaskRoutes from './volunteerTaskRoutes.js';
 import donationRoutes from './donationRoutes.js';
 import ngoRequirementRoutes from './ngoRequirementRoutes.js';
 import fileUploadRoutes from './fileUploadRoutes.js';
+import ngoRoutes from './ngoRoutes.js';
 
 const router = Router();
 
@@ -37,6 +38,9 @@ router.use('/donations', donationRoutes);
 router.use('/volunteer', volunteerTaskRoutes);
 router.use('/ngo-requirements', ngoRequirementRoutes);
 router.use('/upload', fileUploadRoutes);
+
+// Register NGOs endpoints
+router.use('/ngos', ngoRoutes);
 
 // API info endpoint
 router.get('/info', (_req, res) => {

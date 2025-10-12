@@ -105,9 +105,7 @@ export default function WelcomeScreen() {
         break;
       case 'beneficiary':
         // Future: router.push('/beneficiary/dashboard');
-        alert(
-          'Beneficiary dashboard coming soon! Thank you for your patience.'
-        );
+        // Navigate directly to beneficiary login
         router.push('/beneficiary-login');
         break;
       default:
