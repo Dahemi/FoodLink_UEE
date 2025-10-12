@@ -72,37 +72,80 @@ export default function BeneficiaryDashboard() {
     setLoading(true);
     try {
       const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${API_URL}/api/ngos/locations`).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json();
-        // Expecting array of points with coordinates
-        const enriched = (data || []).map((p: any) => {
-          const fp: FoodPoint = {
-            id: p._id || String(p.id),
-            name: p.name || p.organizationName || 'Unknown',
-            coordinates: p.coordinates || null,
-            address: p.address || p.location || '',
-            nextPickup: p.nextPickup || null,
-            status: p.isOpen ? 'Open Now' : p.nextPickup ? 'Next Pickup' : 'Closed',
-          };
-          if (fp.coordinates) {
-            const d = haversineDistance(userCoords, fp.coordinates);
-            fp.distance = d;
-            fp.distanceLabel = `${d.toFixed(1)} mi away`;
+      const endpoints = [
+        `${API_URL}/api/ngos`, // donor-facing list (preferred)
+        `${API_URL}/api/ngos/locations`, // fallback locations endpoint
+      ];
+
+      let data: any[] | null = null;
+
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) {
+            console.warn(`FoodPoints fetch failed (${res.status}) from ${url}`);
+            continue;
           }
-          return fp;
-        });
-        // sort by distance when available
-        enriched.sort((a: FoodPoint, b: FoodPoint) => {
-          if (a.distance == null) return 1;
-          if (b.distance == null) return -1;
-          return (a.distance || 0) - (b.distance || 0);
-        });
-        setFoodPoints(enriched.length ? enriched : EXAMPLE_FOOD_POINTS);
-      } else {
-        // fallback to example data
-        setFoodPoints(EXAMPLE_FOOD_POINTS);
+          const json = await res.json();
+          if (Array.isArray(json)) {
+            data = json;
+          } else if (json && Array.isArray(json.ngos)) {
+            data = json.ngos;
+          } else if (json && Array.isArray((json as any).data)) {
+            data = (json as any).data;
+          } else {
+            data = Array.isArray(json) ? json : null;
+          }
+
+          if (data && data.length) break;
+        } catch (e) {
+          console.warn('Fetch error for', url, e);
+          continue;
+        }
       }
+
+      const enriched = (data || []).map((p: any) => {
+        // normalize coordinates from different shapes
+        let coords: { latitude: number; longitude: number } | null = null;
+        if (p.coordinates && typeof p.coordinates === 'object') {
+          coords = { latitude: Number(p.coordinates.latitude), longitude: Number(p.coordinates.longitude) };
+        } else if (p.address && p.address.coordinates) {
+          coords = { latitude: Number(p.address.coordinates.latitude), longitude: Number(p.address.coordinates.longitude) };
+        } else if (p.location && p.location.coordinates) {
+          if (Array.isArray(p.location.coordinates) && p.location.coordinates.length >= 2) {
+            // GeoJSON style [lng, lat]
+            coords = { latitude: Number(p.location.coordinates[1]), longitude: Number(p.location.coordinates[0]) };
+          } else if (typeof p.location.coordinates === 'object') {
+            coords = { latitude: Number(p.location.coordinates.latitude), longitude: Number(p.location.coordinates.longitude) };
+          }
+        }
+
+        const fp: FoodPoint = {
+          id: p._id || String(p.id) || `${p.name}-${Math.random()}`,
+          name: p.name || p.organizationName || 'Unknown',
+          coordinates: coords,
+          address: p.address?.street || p.address || p.location?.address || '',
+          nextPickup: p.nextPickup || null,
+          status: p.isOpen ? 'Open Now' : p.nextPickup ? 'Next Pickup' : 'Closed',
+        };
+
+        if (fp.coordinates) {
+          const d = haversineDistance(userCoords, fp.coordinates);
+          fp.distance = d;
+          fp.distanceLabel = `${d.toFixed(1)} mi away`;
+        }
+
+        return fp;
+      });
+
+      // sort by distance when available
+      enriched.sort((a: FoodPoint, b: FoodPoint) => {
+        if (a.distance == null) return 1;
+        if (b.distance == null) return -1;
+        return (a.distance || 0) - (b.distance || 0);
+      });
+
+      setFoodPoints(enriched.length ? enriched : EXAMPLE_FOOD_POINTS);
     } catch (err) {
       console.error('Failed to load food points', err);
       setFoodPoints(EXAMPLE_FOOD_POINTS);
