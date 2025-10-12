@@ -124,7 +124,7 @@ export default function ClaimedDonationCard({
             <Chip 
               mode="outlined" 
               textStyle={[styles.priorityText, { color: getPriorityColor(donation.priority) }]}
-              style={[styles.priorityChip, { borderColor: getPriorityColor(donation.priority) }]}
+              style={[styles.priorityChip, { borderColor: getPriorityColor(donation.priority), marginBottom: 4 }]}
             >
               {donation.priority?.toUpperCase() || 'MEDIUM'}
             </Chip>
@@ -254,6 +254,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
+    minHeight: 65,
   },
   headerLeft: {
     flex: 1,
@@ -261,6 +262,7 @@ const styles = StyleSheet.create({
   headerRight: {
     alignItems: 'flex-end',
     gap: 4,
+    flexShrink: 0,
   },
   donorName: {
     fontSize: 18,
@@ -274,14 +276,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   priorityChip: {
-    height: 24,
+    height: 28,
+    minHeight: 28,
   },
   priorityText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
   },
   statusChip: {
-    height: 24,
+    height: 30,
+    minHeight: 30,
   },
   statusText: {
     fontSize: 10,

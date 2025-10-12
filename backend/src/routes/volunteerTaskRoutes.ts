@@ -187,7 +187,7 @@ router.get('/claimed-donations', authenticateToken, async (req, res, next) => {
           `${donation.claimedBy.address.street}, ${donation.claimedBy.address.city}, ${donation.claimedBy.address.state}` : 
           'Address not available',
         phone: donation.claimedBy?.phone || 'Phone not available',
-        contactPerson: donation.claimedBy?.contactPerson || 'Contact person not available'
+        contactPerson: donation.claimedBy?.name || 'Contact person not available' // Use NGO name as contact person
       },
       status: 'claimed',
       priority: donation.pickupSchedule?.urgency || 'medium',
