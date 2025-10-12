@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Chip, Searchbar, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -68,34 +69,56 @@ export default function BeneficiaryDashboard() {
     loadFoodPoints();
   }, []);
 
+  const resolveToken = async (): Promise<string | null> => {
+    const tFromCtx = (authState as any)?.token || (authState as any)?.accessToken;
+    if (tFromCtx) return tFromCtx as string;
+
+    const keys = ['@beneficiary_auth', 'beneficiaryAuthToken', 'beneficiary_token', 'authToken', 'ngoAuthToken'];
+    for (const k of keys) {
+      try {
+        const raw = await AsyncStorage.getItem(k);
+        if (!raw) continue;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed?.token) return parsed.token;
+          if (parsed?.accessToken) return parsed.accessToken;
+        } catch {
+          return raw;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    return null;
+  };
+
   const loadFoodPoints = async () => {
     setLoading(true);
     try {
       const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
-      const endpoints = [
-        `${API_URL}/api/ngos`, // donor-facing list (preferred)
-        `${API_URL}/api/ngos/locations`, // fallback locations endpoint
-      ];
+      const endpoints = [`${API_URL}/api/ngos`, `${API_URL}/api/ngos/locations`];
+
+      const token = await resolveToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       let data: any[] | null = null;
-
       for (const url of endpoints) {
         try {
-          const res = await fetch(url);
+          const res = await fetch(url, { headers });
+          if (res.status === 401 || res.status === 403) {
+            console.warn(`FoodPoints endpoint requires auth: ${url} -> ${res.status}`);
+            continue;
+          }
           if (!res.ok) {
             console.warn(`FoodPoints fetch failed (${res.status}) from ${url}`);
             continue;
           }
           const json = await res.json();
-          if (Array.isArray(json)) {
-            data = json;
-          } else if (json && Array.isArray(json.ngos)) {
-            data = json.ngos;
-          } else if (json && Array.isArray((json as any).data)) {
-            data = (json as any).data;
-          } else {
-            data = Array.isArray(json) ? json : null;
-          }
+          if (Array.isArray(json)) data = json;
+          else if (json && Array.isArray(json.ngos)) data = json.ngos;
+          else if (json && Array.isArray((json as any).data)) data = (json as any).data;
+          else data = Array.isArray(json) ? json : null;
 
           if (data && data.length) break;
         } catch (e) {
@@ -105,7 +128,6 @@ export default function BeneficiaryDashboard() {
       }
 
       const enriched = (data || []).map((p: any) => {
-        // normalize coordinates from different shapes
         let coords: { latitude: number; longitude: number } | null = null;
         if (p.coordinates && typeof p.coordinates === 'object') {
           coords = { latitude: Number(p.coordinates.latitude), longitude: Number(p.coordinates.longitude) };
@@ -113,7 +135,6 @@ export default function BeneficiaryDashboard() {
           coords = { latitude: Number(p.address.coordinates.latitude), longitude: Number(p.address.coordinates.longitude) };
         } else if (p.location && p.location.coordinates) {
           if (Array.isArray(p.location.coordinates) && p.location.coordinates.length >= 2) {
-            // GeoJSON style [lng, lat]
             coords = { latitude: Number(p.location.coordinates[1]), longitude: Number(p.location.coordinates[0]) };
           } else if (typeof p.location.coordinates === 'object') {
             coords = { latitude: Number(p.location.coordinates.latitude), longitude: Number(p.location.coordinates.longitude) };
@@ -138,7 +159,6 @@ export default function BeneficiaryDashboard() {
         return fp;
       });
 
-      // sort by distance when available
       enriched.sort((a: FoodPoint, b: FoodPoint) => {
         if (a.distance == null) return 1;
         if (b.distance == null) return -1;
