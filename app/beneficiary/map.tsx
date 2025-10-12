@@ -8,6 +8,7 @@ import { Button, Chip, Card } from 'react-native-paper';
 import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { NavigationService } from '../../services/navigationService';
+import { FoodPointReminderService } from '../../services/foodPointReminderService';
 
 interface NGOItem {
   id: string;
@@ -264,10 +265,31 @@ export default function FoodFinderMap() {
               Get Directions
             </Button>
 
-            <Button mode="outlined" onPress={() => {
-              Alert.alert('Reminder', 'Reminder set (demo)');
-            }} style={[styles.actionBtn, { marginTop: 8 }]}>
-              Remind Me
+            <Button
+              mode="outlined"
+              textColor="#2D3748"
+              onPress={async () => {
+                try {
+                  if (selectedNgo?.id) {
+                    await FoodPointReminderService.saveMetaEntry({
+                      id: selectedNgo.id,
+                      name: selectedNgo.name,
+                      address: selectedNgo.address ?? '',
+                      enabled: false,
+                      minutesFromNow: 30,
+                    });
+                  }
+                } catch (err) {
+                  console.warn('Could not prepopulate reminder meta', err);
+                }
+
+                const q = `open=reminders&id=${encodeURIComponent(selectedNgo?.id || '')}&name=${encodeURIComponent(selectedNgo?.name || '')}&address=${encodeURIComponent(selectedNgo?.address || '')}`;
+                // Use replace to avoid pushing duplicate history / re-trigger loops
+                router.replace(`/beneficiary/profile?${q}`);
+              }}
+              style={[styles.actionBtn, { marginTop: 8 }]}
+            >
+              Set Reminder
             </Button>
 
             <Button mode="text" onPress={() => setFullDetailsVisible(false)} style={{ marginTop: 12 }}>

@@ -1,16 +1,43 @@
-import React, { useState } from 'react'; // Add useState import
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Avatar, Divider } from 'react-native-paper';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  SafeAreaView,
+  ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  FlatList,
+  Switch,
+  Alert,
+  StyleSheet,
+} from 'react-native';
+import { Avatar, Divider, Card, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import LoadingSpinner from '../../components/LoadingSpinner';
+import { NotificationService } from '../../services/notificationService';
 import { useAuth } from '../../context/AuthContext';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { profileStyles } from '../../styles/beneficiary/profileStyles';
 
 export default function BeneficiaryProfile() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ open?: string; id?: string; name?: string; address?: string }>();
   const { authState, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('profile'); // Initialize activeTab state
+  const [activeTab, setActiveTab] = useState('profile');
+
+  const [showRemindersModal, setShowRemindersModal] = useState(false);
+  const [loadingReminders, setLoadingReminders] = useState(false);
+  const [reminders, setReminders] = useState<Record<string, any>>({});
+
+  // Guard so we auto-open reminders only once per navigation
+  const autoOpenedRef = useRef(false);
+
+  useEffect(() => {
+    if (params?.open === 'reminders' && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      openReminders();
+    }
+  }, [params?.open]);
 
   const handleLogout = async () => {
     try {
@@ -38,6 +65,52 @@ export default function BeneficiaryProfile() {
       case 'profile':
         setActiveTab('profile');
         break;
+    }
+  };
+
+  // Ensure openReminders / loadReminders are defined above or in scope
+  const openReminders = async () => {
+    setShowRemindersModal(true);
+    await loadReminders();
+  };
+
+  const loadReminders = async () => {
+    setLoadingReminders(true);
+    try {
+      const data = await NotificationService.getSavedReminders();
+      const map = data || {};
+      if (params?.id && !map[params.id]) {
+        map[params.id] = {
+          id: params.id,
+          name: params.name ?? 'Food Point',
+          address: params.address ?? '',
+          enabled: false,
+          minutesFromNow: 30,
+        };
+      }
+      setReminders(map);
+    } catch (err) {
+      console.error('Failed to load reminders', err);
+      setReminders({});
+    } finally {
+      setLoadingReminders(false);
+    }
+  };
+
+  const toggleReminder = async (id: string, enable: boolean) => {
+    try {
+      const meta = reminders[id] || { id, name: 'Food Point', address: '' };
+      const fp = { id: meta.id, name: meta.name, address: meta.address, nextPickup: meta.nextPickup ?? null };
+      if (enable) {
+        await NotificationService.toggleFoodPointReminder(fp, true, meta.minutesFromNow ?? 30);
+        setReminders(prev => ({ ...prev, [id]: { ...(prev[id] || {}), enabled: true } }));
+      } else {
+        await NotificationService.toggleFoodPointReminder(fp, false);
+        setReminders(prev => ({ ...prev, [id]: { ...(prev[id] || {}), enabled: false } }));
+      }
+    } catch (err) {
+      console.error('Toggle reminder failed', err);
+      Alert.alert('Error', 'Failed to toggle reminder');
     }
   };
 
@@ -74,7 +147,7 @@ export default function BeneficiaryProfile() {
         <View style={styles.settingsContainer}>
           <Text style={styles.sectionTitle}>Settings</Text>
           
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity style={styles.settingItem} onPress={() => openReminders()}>
             <View style={styles.settingLeft}>
               <MaterialCommunityIcons name="bell-outline" size={24} color="#4A5568" />
               <Text style={styles.settingText}>My Reminders</Text>
@@ -124,31 +197,58 @@ export default function BeneficiaryProfile() {
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation */}
-      {/* <View style={styles.bottomNav}>
-        {['home', 'map', 'alerts', 'profile'].map((tab) => (
-          <TouchableOpacity 
-            key={tab}
-            style={styles.navItem} 
-            onPress={() => handleTabPress(tab)}
-          >
-            <MaterialCommunityIcons 
-              name={
-                tab === 'home' ? 'home' :
-                tab === 'map' ? 'map-marker' :
-                tab === 'alerts' ? 'bell' : 'account'
-              } 
-              size={24} 
-              color={activeTab === tab ? '#FF8A50' : '#718096'} 
+      {/* Reminders modal */}
+      <Modal visible={showRemindersModal} animationType="slide" onRequestClose={() => setShowRemindersModal(false)}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          <View style={modalStyles.header}>
+            <IconButton icon="arrow-left" size={24} onPress={() => setShowRemindersModal(false)} />
+            <Text style={modalStyles.title}>My Reminders</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {loadingReminders ? (
+            <LoadingSpinner message="Loading reminders..." />
+          ) : (
+            <FlatList
+              data={Object.values(reminders)}
+              keyExtractor={(item: any) => item.id}
+              contentContainerStyle={{ padding: 12 }}
+              renderItem={({ item }: { item: any }) => (
+                <Card style={modalStyles.card}>
+                  <View style={modalStyles.row}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={modalStyles.name}>{item.name}</Text>
+                      <Text style={modalStyles.sub}>{item.nextPickup ? `Next pickup: ${item.nextPickup}` : (item.address || '')}</Text>
+                    </View>
+                    <Switch
+                      value={!!item.enabled}
+                      onValueChange={(val) => toggleReminder(item.id, val)}
+                      trackColor={{ true: '#FF8A50', false: '#E2E8F0' }}
+                      thumbColor="#FFFFFF"
+                    />
+                  </View>
+                </Card>
+              )}
+              ListEmptyComponent={() => (
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ color: '#718096' }}>No reminders configured yet. Set a reminder from the Map.</Text>
+                </View>
+              )}
             />
-            <Text style={[styles.navText, activeTab === tab ? styles.navTextActive : styles.navTextInactive]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View> */}
+          )}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const modalStyles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#EEF2F7' },
+  title: { fontSize: 18, fontWeight: '700', flex: 1, textAlign: 'center', color: '#2D3748' },
+  card: { marginVertical: 8, padding: 12, borderRadius: 8, backgroundColor: '#FFF8F0' },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  name: { fontSize: 16, fontWeight: '600', color: '#2D3748' },
+  sub: { fontSize: 12, color: '#718096', marginTop: 4 },
+});
 
 const styles = profileStyles;
