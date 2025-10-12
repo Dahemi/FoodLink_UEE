@@ -15,7 +15,7 @@ import { Avatar, Divider, Card, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import { NotificationService } from '../../services/notificationService';
+import { FoodPointReminderService } from '../../services/foodPointReminderService';
 import { useAuth } from '../../context/AuthContext';
 import { profileStyles } from '../../styles/beneficiary/profileStyles';
 
@@ -77,7 +77,8 @@ export default function BeneficiaryProfile() {
   const loadReminders = async () => {
     setLoadingReminders(true);
     try {
-      const data = await NotificationService.getSavedReminders();
+      const data = await FoodPointReminderService.getSavedReminders();
+      // If navigated from map with id/name/address and no persisted meta, add lightweight entry
       const map = data || {};
       if (params?.id && !map[params.id]) {
         map[params.id] = {
@@ -102,10 +103,10 @@ export default function BeneficiaryProfile() {
       const meta = reminders[id] || { id, name: 'Food Point', address: '' };
       const fp = { id: meta.id, name: meta.name, address: meta.address, nextPickup: meta.nextPickup ?? null };
       if (enable) {
-        await NotificationService.toggleFoodPointReminder(fp, true, meta.minutesFromNow ?? 30);
+        await FoodPointReminderService.toggleReminder(fp, true, meta.minutesFromNow ?? 30);
         setReminders(prev => ({ ...prev, [id]: { ...(prev[id] || {}), enabled: true } }));
       } else {
-        await NotificationService.toggleFoodPointReminder(fp, false);
+        await FoodPointReminderService.toggleReminder(fp, false);
         setReminders(prev => ({ ...prev, [id]: { ...(prev[id] || {}), enabled: false } }));
       }
     } catch (err) {
