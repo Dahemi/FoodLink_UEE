@@ -33,6 +33,7 @@ export default function VolunteerDashboard() {
   
   const {
     tasks,
+    claimedDonations,
     stats,
     loading,
     error,
@@ -48,6 +49,13 @@ export default function VolunteerDashboard() {
     acceptedTasks,
     inProgressTasks,
   } = useVolunteerTasks();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Dashboard - Tasks:', tasks.length);
+    console.log('Dashboard - Claimed Donations:', claimedDonations.length);
+    console.log('Dashboard - Claimed Donations Data:', claimedDonations);
+  }, [tasks, claimedDonations]);
 
   const { isInitialized: notificationsInitialized } = useVolunteerNotifications();
 
@@ -163,13 +171,16 @@ export default function VolunteerDashboard() {
   };
 
   const getDisplayTasks = () => {
+    // Combine regular tasks with claimed donations
+    const allTasks = [...tasks, ...claimedDonations];
+    
     switch (activeTab) {
       case 'urgent':
         return urgentTasks;
       case 'today':
         return todaysTasks;
       default:
-        return tasks.filter(task => task.status !== 'completed' && task.status !== 'cancelled');
+        return allTasks.filter(task => task.status !== 'completed' && task.status !== 'cancelled');
     }
   };
 
@@ -378,17 +389,26 @@ export default function VolunteerDashboard() {
         {/* Task List - Now part of the main scroll */}
         <View style={styles.taskListContainer}>
           <TaskList
-            tasks={getDisplayTasks()}
+            tasks={tasks}
+            claimedDonations={claimedDonations}
             loading={false}
             refreshing={refreshing}
             error={error}
             scrollable={false} // Disable internal scrolling since we're in a ScrollView
             onTaskPress={handleTaskPress}
+            onDonationPress={(donation) => {
+              // Handle donation press - could navigate to donation details
+              console.log('Donation pressed:', donation);
+            }}
             onRefresh={refreshTasks}
             onAcceptTask={handleAcceptTask}
             onStartTask={handleStartTask}
             onCompleteTask={handleCompleteTask}
             onCancelTask={handleCancelTask}
+            onAcceptDonation={(donationId) => {
+              // Handle accepting a donation - could create a volunteer task
+              console.log('Accept donation:', donationId);
+            }}
             emptyMessage={getEmptyMessage()}
             emptyIcon={getEmptyIcon()}
           />
