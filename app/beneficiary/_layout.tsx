@@ -1,52 +1,61 @@
 import React from 'react';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { Tabs } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { StatusBar } from 'expo-status-bar';
 
 export default function BeneficiaryLayout() {
   return (
-    <ProtectedRoute requireAuth={true} requireRole="beneficiary">
-      <Stack
+    <ProtectedRoute requireAuth={true} requireRole="beneficiary" fallbackRoute="/beneficiary-login">
+      <Tabs
         screenOptions={{
-          headerStyle: {
-            backgroundColor: '#FF8A50',
+          headerShown: false,
+          tabBarActiveTintColor: '#FF8A50',
+          tabBarInactiveTintColor: '#718096',
+          tabBarStyle: {
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 1,
+            borderTopColor: '#E2E8F0',
+            paddingBottom: 8,
+            paddingTop: 8,
+            height: 65,
           },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: {
+          tabBarLabelStyle: {
+            fontSize: 12,
             fontWeight: '600',
+            marginTop: 4,
           },
-          contentStyle: { backgroundColor: '#FFFFFF' },
         }}
       >
-        <Stack.Screen 
-          name="dashboard" 
-          options={{ 
+        <Tabs.Screen
+          name="dashboard"
+          options={{
             title: 'Home',
-            headerShown: false,
-          }} 
+            tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} />
+          }}
         />
-        <Stack.Screen 
-          name="map" 
-          options={{ 
-            title: 'FoodFinderMap',
-            headerShown: false,
-          }} 
+        <Tabs.Screen
+          name="map"
+          options={{
+            title: 'Map',
+            tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="map-marker" size={size} color={color} />
+          }}
         />
-        <Stack.Screen 
-          name="alerts" 
-          options={{ 
+        <Tabs.Screen
+          name="alerts"
+          options={{
             title: 'Alerts',
-            headerShown: false,
-          }} 
+            tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="bell" size={size} color={color} />
+          }}
         />
-        <Stack.Screen 
-          name="profile" 
-          options={{ 
+        <Tabs.Screen
+          name="profile"
+          options={{
             title: 'Profile',
-            headerShown: false,
-          }} 
+            tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} />
+          }}
         />
-      </Stack>
+      </Tabs>
       <StatusBar style="light" backgroundColor="#FF8A50" />
     </ProtectedRoute>
   );

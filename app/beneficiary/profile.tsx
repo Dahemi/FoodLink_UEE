@@ -125,7 +125,7 @@ export default function BeneficiaryProfile() {
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
+      {/* <View style={styles.bottomNav}>
         {['home', 'map', 'alerts', 'profile'].map((tab) => (
           <TouchableOpacity 
             key={tab}
@@ -146,7 +146,7 @@ export default function BeneficiaryProfile() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </View> */}
     </SafeAreaView>
   );
 }
