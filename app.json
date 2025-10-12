@@ -7,14 +7,10 @@
     "icon": "./assets/images/icon.png",
     "scheme": "foodlink",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "extra": {
-      "eas": {
-        "projectId": "foodlink-volunteer-app"
-      }
-    },
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.dahami.foodlink",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "FoodLink needs access to your photo library to upload food images.",
         "NSCameraUsageDescription": "FoodLink needs access to your camera to take photos of food donations.",
@@ -23,13 +19,8 @@
       }
     },
     "android": {
+      "package": "com.dahami.foodlink",
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
@@ -41,8 +32,7 @@
         "googleMaps": {
           "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
         }
-      },
-      "package": "com.dahami.foodlink"
+      }
     },
     "web": {
       "bundler": "metro",
@@ -76,6 +66,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "584b92ac-d2be-4c5c-9812-fd1babc3ca3d"
+      }
     }
   }
 }
