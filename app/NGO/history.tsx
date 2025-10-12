@@ -1,119 +1,218 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, Chip, Searchbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { NGOHistoryApi } from '../../services/ngoHistoryApi';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
-interface HistoryItem {
-  id: string;
-  type: 'requirement' | 'donation' | 'distribution';
-  title: string;
-  description: string;
-  date: string;
-  status: 'completed' | 'in_progress' | 'cancelled';
-  details: {
-    servings?: number;
-    beneficiaries?: number;
-    volunteers?: number;
-    location?: string;
+interface ClaimHistory {
+  _id: string;
+  donationId: {
+    _id: string;
+    title: string;
+    foodDetails: {
+      type: string;
+      category: string;
+      quantity: string;
+      estimatedServings: number;
+      description: string;
+    };
+    pickupLocation: {
+      address: string;
+      city: string;
+      state: string;
+    };
+    images?: string[];
   };
+  donorId: {
+    _id: string;
+    name: string;
+    businessName?: string;
+  };
+  status: 'pending' | 'approved' | 'rejected' | 'picked_up' | 'delivered' | 'cancelled';
+  requestMessage?: string;
+  pickupScheduledAt?: string;
+  pickedUpAt?: string;
+  deliveredAt?: string;
+  beneficiariesServed?: number;
+  volunteersInvolved?: number;
+  distributionNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface HistoryStats {
+  totalClaims: number;
+  approvedClaims: number;
+  completedClaims: number;
+  totalServings: number;
+  totalBeneficiaries: number;
 }
 
 export default function NGOHistory() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [filterBy, setFilterBy] = useState<'all' | 'requirements' | 'donations' | 'distributions'>('all');
+  const [loading, setLoading] = useState(true);
+  const [filterBy, setFilterBy] = useState<'all' | 'pending' | 'approved' | 'delivered' | 'cancelled'>('all');
+  const [claims, setClaims] = useState<ClaimHistory[]>([]);
+  const [stats, setStats] = useState<HistoryStats>({
+    totalClaims: 0,
+    approvedClaims: 0,
+    completedClaims: 0,
+    totalServings: 0,
+    totalBeneficiaries: 0,
+  });
+  const [error, setError] = useState<string | null>(null);
 
-  // Dummy history data
-  const [historyItems] = useState<HistoryItem[]>([
-    {
-      id: '1',
-      type: 'requirement',
-      title: 'Emergency Food for Flood Victims',
-      description: 'Successfully fulfilled requirement for emergency food supplies during recent flood crisis',
-      date: '2025-01-07T15:30:00Z',
-      status: 'completed',
-      details: {
-        servings: 500,
-        beneficiaries: 125,
-        volunteers: 8,
-        location: 'Kelaniya Relief Center',
-      },
-    },
-    {
-      id: '2',
-      type: 'donation',
-      title: 'Bakery Items from Sunshine Bakery',
-      description: 'Received and distributed fresh bakery items to families in need',
-      date: '2025-01-06T09:15:00Z',
-      status: 'completed',
-      details: {
-        servings: 80,
-        beneficiaries: 20,
-        volunteers: 4,
-        location: 'Community Center',
-      },
-    },
-    {
-      id: '3',
-      type: 'distribution',
-      title: 'Weekly Community Kitchen',
-      description: 'Regular weekly distribution event for elderly residents',
-      date: '2025-01-05T12:00:00Z',
-      status: 'completed',
-      details: {
-        servings: 150,
-        beneficiaries: 50,
-        volunteers: 6,
-        location: 'Elderly Care Center',
-      },
-    },
-  ]);
+  useEffect(() => {
+    fetchHistory();
+  }, [filterBy]);
+
+  const fetchHistory = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!NGOHistoryApi.isEnabled()) {
+        setError('API not configured');
+        setLoading(false);
+        return;
+      }
+
+      // Fetch claims and stats in parallel
+      const [historyResponse, statsResponse] = await Promise.all([
+        NGOHistoryApi.getClaimHistory({
+          status: filterBy === 'all' ? undefined : filterBy,
+          page: 1,
+          limit: 50,
+        }),
+        NGOHistoryApi.getClaimStats(),
+      ]);
+
+      console.log('History fetched:', historyResponse.claims.length, 'claims');
+      console.log('Stats fetched:', statsResponse);
+
+      setClaims(historyResponse.claims);
+      setStats(statsResponse);
+    } catch (err) {
+      console.error('Error fetching history:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load history');
+      Alert.alert('Error', 'Failed to load claim history. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1500);
+    await fetchHistory();
+    setRefreshing(false);
   };
 
   const getFilteredHistory = () => {
-    let filtered = historyItems;
-    
-    if (filterBy !== 'all') {
-      filtered = filtered.filter(item => item.type === filterBy.slice(0, -1));
-    }
-    
+    let filtered = claims;
+
     if (searchQuery) {
-      filtered = filtered.filter(item =>
-        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.description.toLowerCase().includes(searchQuery.toLowerCase())
+      filtered = filtered.filter(
+        (claim) =>
+          claim.donationId.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          claim.donationId.foodDetails.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          claim.donorId.businessName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          claim.donorId.name.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
-    
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return filtered;
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'requirement': return '#FF8A50';
-      case 'donation': return '#4CAF50';
-      case 'distribution': return '#2196F3';
-      default: return '#718096';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return '#4CAF50';
+      case 'approved':
+      case 'picked_up':
+        return '#2196F3';
+      case 'pending':
+        return '#FF9800';
+      case 'cancelled':
+      case 'rejected':
+        return '#F44336';
+      default:
+        return '#718096';
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'requirement': return 'clipboard-list';
-      case 'donation': return 'gift';
-      case 'distribution': return 'truck-delivery';
-      default: return 'file-document';
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending Approval';
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected';
+      case 'picked_up':
+        return 'Picked Up';
+      case 'delivered':
+        return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status;
     }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return 'check-circle';
+      case 'approved':
+        return 'clock-check';
+      case 'picked_up':
+        return 'truck';
+      case 'pending':
+        return 'clock-outline';
+      case 'cancelled':
+      case 'rejected':
+        return 'close-circle';
+      default:
+        return 'information';
+    }
+  };
+
+  const getFoodTypeIcon = (type: string) => {
+    const icons: { [key: string]: string } = {
+      cooked_meal: 'food',
+      raw_ingredients: 'food-variant',
+      packaged_food: 'package-variant',
+      bakery: 'bread-slice',
+      fruits_vegetables: 'fruit-pineapple',
+      dairy: 'glass-mug-variant',
+      beverages: 'cup',
+    };
+    return icons[type] || 'food-apple';
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const getDonorName = (claim: ClaimHistory) => {
+    return claim.donorId.businessName || claim.donorId.name;
   };
 
   const renderHeader = () => (
@@ -128,14 +227,15 @@ export default function NGOHistory() {
   const renderSearchAndFilters = () => (
     <View style={styles.searchContainer}>
       <Searchbar
-        placeholder="Search activities..."
+        placeholder="Search claims..."
         onChangeText={setSearchQuery}
         value={searchQuery}
         style={styles.searchBar}
+        iconColor="#FF8A50"
       />
-      
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-        {['all', 'requirements', 'donations', 'distributions'].map((filter) => (
+        {['all', 'pending', 'approved', 'delivered', 'cancelled'].map((filter) => (
           <Chip
             key={filter}
             mode={filterBy === filter ? 'flat' : 'outlined'}
@@ -152,116 +252,164 @@ export default function NGOHistory() {
     </View>
   );
 
-  const renderSummaryStats = () => {
-    const completedItems = historyItems.filter(item => item.status === 'completed');
-    const totalServings = completedItems.reduce((sum, item) => sum + (item.details.servings || 0), 0);
-    const totalBeneficiaries = completedItems.reduce((sum, item) => sum + (item.details.beneficiaries || 0), 0);
-    const totalVolunteers = completedItems.reduce((sum, item) => sum + (item.details.volunteers || 0), 0);
-
-    return (
-      <View style={styles.summaryContainer}>
-        <Text style={styles.summaryTitle}>Impact Summary</Text>
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryNumber}>{totalServings.toLocaleString()}</Text>
-            <Text style={styles.summaryLabel}>Total Servings</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryNumber}>{totalBeneficiaries.toLocaleString()}</Text>
-            <Text style={styles.summaryLabel}>People Helped</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryNumber}>{totalVolunteers}</Text>
-            <Text style={styles.summaryLabel}>Volunteers Engaged</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryNumber}>{completedItems.length}</Text>
-            <Text style={styles.summaryLabel}>Activities Completed</Text>
-          </View>
+  const renderSummaryStats = () => (
+    <View style={styles.summaryContainer}>
+      <Text style={styles.summaryTitle}>Impact Summary</Text>
+      <View style={styles.summaryGrid}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryNumber}>{stats.totalServings.toLocaleString()}</Text>
+          <Text style={styles.summaryLabel}>Total Servings</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryNumber}>{stats.totalBeneficiaries.toLocaleString()}</Text>
+          <Text style={styles.summaryLabel}>People Helped</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryNumber}>{stats.completedClaims}</Text>
+          <Text style={styles.summaryLabel}>Completed</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryNumber}>{stats.totalClaims}</Text>
+          <Text style={styles.summaryLabel}>Total Claims</Text>
         </View>
       </View>
-    );
-  };
+    </View>
+  );
 
-  const renderHistoryCard = (item: HistoryItem) => (
-    <Card key={item.id} style={styles.historyCard}>
-      <Card.Content>
-        <View style={styles.historyHeader}>
-          <View style={styles.typeSection}>
-            <MaterialCommunityIcons
-              name={getTypeIcon(item.type)}
-              size={20}
-              color={getTypeColor(item.type)}
-            />
-            <Chip
-              mode="flat"
-              style={[styles.typeChip, { backgroundColor: `${getTypeColor(item.type)}20` }]}
-              textStyle={[styles.typeText, { color: getTypeColor(item.type) }]}
-            >
-              {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
-            </Chip>
+  const renderClaimCard = (claim: ClaimHistory) => {
+    const donorName = getDonorName(claim);
+    const statusColor = getStatusColor(claim.status);
+    const statusLabel = getStatusLabel(claim.status);
+    const statusIcon = getStatusIcon(claim.status);
+
+    return (
+      <Card key={claim._id} style={styles.historyCard}>
+        <Card.Content>
+          {/* Header with Status */}
+          <View style={styles.historyHeader}>
+            <View style={styles.typeSection}>
+              <MaterialCommunityIcons
+                name={getFoodTypeIcon(claim.donationId.foodDetails.type) as any}
+                size={20}
+                color="#FF8A50"
+              />
+              <Chip
+                mode="flat"
+                style={[styles.statusChip, { backgroundColor: statusColor }]}
+                textStyle={styles.statusText}
+                icon={statusIcon as any}
+              >
+                {statusLabel}
+              </Chip>
+            </View>
+            <Text style={styles.dateText}>{formatDate(claim.createdAt)}</Text>
           </View>
-          <Text style={styles.dateText}>
-            {new Date(item.date).toLocaleDateString()}
+
+          {/* Donation Title */}
+          <Text style={styles.historyTitle}>{claim.donationId.title}</Text>
+
+          {/* Description */}
+          <Text style={styles.historyDescription} numberOfLines={2}>
+            {claim.donationId.foodDetails.description}
           </Text>
-        </View>
 
-        <Text style={styles.historyTitle}>{item.title}</Text>
-        <Text style={styles.historyDescription}>{item.description}</Text>
-
-        {item.details && (
+          {/* Details */}
           <View style={styles.detailsContainer}>
             <View style={styles.metric}>
               <MaterialCommunityIcons name="food" size={16} color="#718096" />
-              <Text style={styles.metricText}>{item.details.servings} servings</Text>
+              <Text style={styles.metricText}>
+                {claim.donationId.foodDetails.estimatedServings} servings
+              </Text>
             </View>
             <View style={styles.metric}>
-              <MaterialCommunityIcons name="account-group" size={16} color="#718096" />
-              <Text style={styles.metricText}>{item.details.beneficiaries} people</Text>
+              <MaterialCommunityIcons name="package-variant" size={16} color="#718096" />
+              <Text style={styles.metricText}>{claim.donationId.foodDetails.quantity}</Text>
             </View>
-            <View style={styles.metric}>
-              <MaterialCommunityIcons name="account-heart" size={16} color="#718096" />
-              <Text style={styles.metricText}>{item.details.volunteers} volunteers</Text>
-            </View>
+            {claim.beneficiariesServed && claim.beneficiariesServed > 0 && (
+              <View style={styles.metric}>
+                <MaterialCommunityIcons name="account-group" size={16} color="#718096" />
+                <Text style={styles.metricText}>{claim.beneficiariesServed} beneficiaries</Text>
+              </View>
+            )}
           </View>
-        )}
 
-        {item.details.location && (
+          {/* Donor Info */}
+          <View style={styles.donorContainer}>
+            <MaterialCommunityIcons name="store" size={16} color="#718096" />
+            <Text style={styles.donorText}>
+              From <Text style={styles.donorName}>{donorName}</Text>
+            </Text>
+          </View>
+
+          {/* Location */}
           <View style={styles.locationContainer}>
             <MaterialCommunityIcons name="map-marker" size={16} color="#718096" />
-            <Text style={styles.locationText}>{item.details.location}</Text>
+            <Text style={styles.locationText}>
+              {claim.donationId.pickupLocation.city}, {claim.donationId.pickupLocation.state}
+            </Text>
           </View>
-        )}
 
-        <View style={styles.actionContainer}>
-          <Button
-            mode="outlined"
-            onPress={() => {}}
-            style={styles.actionButton}
-            compact
-          >
-            View Details
-          </Button>
-          {item.status === 'completed' && (
+          {/* Action Buttons */}
+          <View style={styles.actionContainer}>
             <Button
-              mode="text"
-              onPress={() => {}}
-              textColor="#FF8A50"
+              mode="outlined"
+              onPress={() => {
+                // Navigate to claim details
+                console.log('View claim details:', claim._id);
+              }}
+              style={styles.actionButton}
               compact
             >
-              Share Impact
+              View Details
             </Button>
-          )}
-        </View>
-      </Card.Content>
-    </Card>
+            {claim.status === 'delivered' && (
+              <Button mode="text" onPress={() => {}} textColor="#FF8A50" compact>
+                Share Impact
+              </Button>
+            )}
+          </View>
+        </Card.Content>
+      </Card>
+    );
+  };
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialCommunityIcons name="history" size={64} color="#CBD5E0" />
+      <Text style={styles.emptyTitle}>No Claim History</Text>
+      <Text style={styles.emptyText}>
+        {filterBy === 'all'
+          ? "You haven't made any claims yet. Start by browsing available donations."
+          : `No ${filterBy} claims found. Try a different filter.`}
+      </Text>
+      {filterBy === 'all' && (
+        <Button
+          mode="contained"
+          onPress={() => router.push('/NGO/donations')}
+          style={{ marginTop: 16 }}
+          buttonColor="#FF8A50"
+        >
+          Browse Donations
+        </Button>
+      )}
+    </View>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <LoadingSpinner message="Loading history..." size="large" />
+      </SafeAreaView>
+    );
+  }
+
+  const filteredClaims = getFilteredHistory();
 
   return (
     <SafeAreaView style={styles.container}>
       {renderHeader()}
       {renderSearchAndFilters()}
-      
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -269,9 +417,24 @@ export default function NGOHistory() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A50']} />
         }
       >
-        {renderSummaryStats()}
-        {getFilteredHistory().map(item => renderHistoryCard(item))}
-        
+        {error ? (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons name="alert-circle" size={64} color="#F44336" />
+            <Text style={styles.emptyTitle}>Error Loading History</Text>
+            <Text style={styles.emptyText}>{error}</Text>
+            <Button mode="contained" onPress={fetchHistory} style={{ marginTop: 16 }}>
+              Retry
+            </Button>
+          </View>
+        ) : filteredClaims.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <>
+            {renderSummaryStats()}
+            {filteredClaims.map((claim) => renderClaimCard(claim))}
+          </>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
@@ -370,12 +533,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  typeChip: {
-    height: 24,
+  statusChip: {
+    height: 28,
   },
-  typeText: {
+  statusText: {
     fontSize: 10,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
   dateText: {
     fontSize: 12,
@@ -408,6 +572,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#718096',
   },
+  donorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  donorText: {
+    fontSize: 13,
+    color: '#718096',
+  },
+  donorName: {
+    fontWeight: '600',
+    color: '#2D3748',
+  },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -425,5 +603,26 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     minWidth: 100,
+    borderColor: '#FF8A50',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#718096',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

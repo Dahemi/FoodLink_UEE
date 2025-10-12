@@ -226,6 +226,11 @@ export const NGOAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
         throw new Error(data.message || 'Registration failed');
       }
 
+      // Extract token, refreshToken, and userData from response
+      const userData = data.data ? data.data.user : data.user;
+      const token = data.data ? data.data.token : data.token;
+      const refreshToken = data.data ? data.data.refreshToken : data.refreshToken;
+
       await AsyncStorage.setItem('ngoAuthToken', JSON.stringify({
         accessToken: token,
         refreshToken: refreshToken,
@@ -234,13 +239,15 @@ export const NGOAuthProvider: React.FC<{ children: React.ReactNode }> = ({ child
       await AsyncStorage.setItem('ngoUser', JSON.stringify(userData));
       
       // Keep legacy keys for backward compatibility
-      await AsyncStorage.setItem('ngo_token', data.data.token);
-      await AsyncStorage.setItem('ngo_refresh_token', data.data.refreshToken);
-      await AsyncStorage.setItem('ngo_user', JSON.stringify(data.data.user));
+      await AsyncStorage.setItem('ngo_token', token);
+      if (refreshToken) {
+        await AsyncStorage.setItem('ngo_refresh_token', refreshToken);
+      }
+      await AsyncStorage.setItem('ngo_user', JSON.stringify(userData));
 
       setAuthState({
         isAuthenticated: true,
-        user: data.data.user,
+        user: userData,
         loading: false,
         error: null,
       });

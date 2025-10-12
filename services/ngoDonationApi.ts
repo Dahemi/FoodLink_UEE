@@ -156,6 +156,8 @@ export const NGODonationApi = {
       ...params
     };
     
+    console.log('getAvailableDonations called with params:', finalParams);
+    
     Object.entries(finalParams).forEach(([key, value]) => {
       if (value !== undefined) {
         queryParams.append(key, String(value));
@@ -163,12 +165,24 @@ export const NGODonationApi = {
     });
 
     const query = queryParams.toString() ? `?${queryParams.toString()}` : '';
-    console.log('Fetching donations with query:', query);
+    console.log('Full API query:', `/api/donations${query}`);
     
-    return await httpWithNGOAuth<{
+    const result = await httpWithNGOAuth<{
       donations: DonationResponse[];
       pagination: PaginationResponse;
     }>(`/api/donations${query}`);
+    
+    console.log('API returned:', {
+      donationCount: result.donations.length,
+      totalAvailable: result.pagination.total,
+      firstDonation: result.donations[0] ? {
+        id: result.donations[0]._id,
+        title: result.donations[0].title,
+        status: result.donations[0].status
+      } : null
+    });
+    
+    return result;
   },
 
   async getDonation(id: string): Promise<DonationResponse> {

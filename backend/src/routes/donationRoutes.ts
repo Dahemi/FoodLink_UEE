@@ -24,18 +24,27 @@ router.post('/', authenticateDonor, async (req, res, next) => {
   }
 });
 
-// Get all available donations (NGOs can view)
-router.get('/', authenticateNGO, async (req, res, next) => {
+// Get all available donations (NGOs and others can view)
+router.get('/', authenticateAnyUser, async (req, res, next) => {
   try {
     console.log('Donations GET request received');
-    console.log('NGO user:', req.ngo?._id);
+    console.log('User type:', req.userType);
+    console.log('User ID:', req.user?._id);
     
-    const { page = 1, limit = 20, type, category, urgency, location, status = 'available' } = req.query;
+    const { page = 1, limit = 20, type, category, urgency, location, status } = req.query;
     
-    const query: any = { 
-      status,
+    // Build query - don't filter by status if not provided
+    const query: any = {
       expiryDateTime: { $gt: new Date() } // Only non-expired donations
     };
+    
+    // Only add status filter if explicitly provided
+    if (status) {
+      query.status = status;
+    } else {
+      // Default to showing available donations for NGOs
+      query.status = 'available';
+    }
     
     // Apply filters
     if (type) query['foodDetails.type'] = type;
@@ -55,10 +64,9 @@ router.get('/', authenticateNGO, async (req, res, next) => {
     
     console.log('Query:', JSON.stringify(query, null, 2));
     
-    console.log('Query:', JSON.stringify(query, null, 2));
-    
     const donations = await DonationModel.find(query)
-      .populate('donorId', 'name donorType businessName address phone') // Populate full donor info
+      .populate('donorId', 'name donorType businessName address phone stats')
+      .populate('claimedBy', 'name organizationType')
       .sort({ createdAt: -1 })
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit))
@@ -68,9 +76,48 @@ router.get('/', authenticateNGO, async (req, res, next) => {
     
     console.log('Donations found:', donations.length);
     console.log('Total count:', total);
+    console.log('Sample donation:', donations[0] ? {
+      id: donations[0]._id,
+      title: donations[0].title,
+      status: donations[0].status,
+      donorId: donations[0].donorId
+    } : 'none');
+    
+    // Normalize the response format
+    const normalizedDonations = donations.map((donation: any) => {
+      // Extract donor info with safe property access
+      let donorInfo;
+      
+      if (donation.donorId && typeof donation.donorId === 'object' && '_id' in donation.donorId) {
+        // Donor is populated
+        donorInfo = {
+          _id: donation.donorId._id,
+          name: donation.donorId.name || 'Unknown',
+          donorType: donation.donorId.donorType || 'individual',
+          businessName: donation.donorId.businessName || undefined,
+          phone: donation.donorId.phone || undefined,
+          rating: donation.donorId.stats?.averageRating ?? 0,
+          totalDonations: donation.donorId.stats?.totalDonations ?? 0,
+        };
+      } else {
+        // Donor is not populated (just ID)
+        donorInfo = donation.donorId;
+      }
+
+      return {
+        ...donation,
+        donorId: donorInfo,
+        // Ensure images is always an array of strings
+        images: donation.images ? 
+          (Array.isArray(donation.images) ? 
+            donation.images.map((img: any) => typeof img === 'string' ? img : img.url || img) 
+            : []) 
+          : []
+      };
+    });
     
     sendSuccess(res, {
-      donations,
+      donations: normalizedDonations,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -105,8 +152,9 @@ router.get('/:id', authenticateAnyUser, async (req, res, next) => {
     }
     
     // Normalize images to array of strings
-    if (donation.images && Array.isArray(donation.images)) {
-      donation.images = donation.images.map((img: any) => 
+    if (donation.images && typeof donation.images.toObject === 'function') {
+      const imagesArray = donation.images.toObject();
+      donation.images = imagesArray.map((img: any) => 
         typeof img === 'string' ? img : (img.url || img)
       );
     }
@@ -174,6 +222,79 @@ router.delete('/:id', authenticateDonor, async (req, res, next) => {
   }
 });
 
+// Get donor's donation history
+router.get('/donor/history', authenticateDonor, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status, dateFrom, dateTo } = req.query;
+    
+    // Build query
+    const query: any = { donorId: req.donor._id };
+    
+    if (status) {
+      const statuses = (status as string).split(',');
+      query.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
+    }
+    
+    if (dateFrom || dateTo) {
+      query.createdAt = {};
+      if (dateFrom) query.createdAt.$gte = new Date(dateFrom as string);
+      if (dateTo) query.createdAt.$lte = new Date(dateTo as string);
+    }
+    
+    // Fetch donations
+    const donations = await DonationModel.find(query)
+      .populate('claimedBy', 'name organizationType')
+      .sort({ createdAt: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit))
+      .lean();
+    
+    const total = await DonationModel.countDocuments(query);
+    
+    // Calculate stats
+    const allDonorDonations = await DonationModel.find({ donorId: req.donor._id });
+    const stats = {
+      totalDonations: allDonorDonations.length,
+      activeDonations: allDonorDonations.filter(d => d.status === 'available' || d.status === 'claimed' || d.status === 'pickup_scheduled' || d.status === 'picked_up').length,
+      completedDonations: allDonorDonations.filter(d => d.status === 'delivered').length,
+      totalServings: allDonorDonations.reduce((sum, d) => sum + (d.foodDetails?.estimatedServings || 0), 0),
+      totalImpact: allDonorDonations.filter(d => d.status === 'delivered').reduce((sum, d) => sum + (d.foodDetails?.estimatedServings || 0), 0),
+    };
+    
+    sendSuccess(res, {
+      donations,
+      stats,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit))
+      }
+    }, 'Donation history retrieved successfully');
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Get donor stats
+router.get('/donor/stats', authenticateDonor, async (req, res, next) => {
+  try {
+    const donations = await DonationModel.find({ donorId: req.donor._id });
+    
+    const stats = {
+      totalDonations: donations.length,
+      activeDonations: donations.filter(d => d.status === 'available' || d.status === 'claimed').length,
+      completedDonations: donations.filter(d => d.status === 'delivered').length,
+      totalServings: donations.reduce((sum, d) => sum + (d.foodDetails?.estimatedServings || 0), 0),
+      totalImpact: donations.filter(d => d.status === 'delivered').reduce((sum, d) => sum + (d.foodDetails?.estimatedServings || 0), 0),
+    };
+    
+    sendSuccess(res, stats, 'Donor stats retrieved successfully');
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Express interest in donation (NGOs only)
 router.post('/:id/interest', authenticateNGO, async (req, res, next) => {
   try {
@@ -212,8 +333,13 @@ router.post('/:id/interest', authenticateNGO, async (req, res, next) => {
       .lean();
     
     // Normalize images to array of strings
-    if (populatedDonation && populatedDonation.images && Array.isArray(populatedDonation.images)) {
-      populatedDonation.images = populatedDonation.images.map((img: any) => 
+    if (populatedDonation && populatedDonation.images) {
+      const imagesArray = typeof populatedDonation.images.toObject === 'function'
+        ? populatedDonation.images.toObject()
+        : Array.isArray(populatedDonation.images)
+          ? populatedDonation.images
+          : [];
+      populatedDonation.images = imagesArray.map((img: any) =>
         typeof img === 'string' ? img : (img.url || img)
       );
     }
@@ -223,5 +349,114 @@ router.post('/:id/interest', authenticateNGO, async (req, res, next) => {
     next(e); 
   }
 });
+
+// Get NGO's claim history (for History page)
+router.get('/ngo/claims', authenticateNGO, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status, dateFrom, dateTo } = req.query;
+    
+    // Build query for donations claimed by this NGO
+    const query: any = { claimedBy: req.ngo._id };
+    
+    // Add status filter - map to donation statuses
+    if (status && status !== 'all') {
+      const statusMap: any = {
+        'pending': 'claimed',
+        'approved': 'pickup_scheduled',
+        'picked_up': 'picked_up',
+        'delivered': 'delivered',
+        'cancelled': ['cancelled', 'expired']
+      };
+      
+      const mappedStatus = statusMap[status as string];
+      if (mappedStatus) {
+        query.status = Array.isArray(mappedStatus) ? { $in: mappedStatus } : mappedStatus;
+      }
+    }
+    
+    // Add date range filter
+    if (dateFrom || dateTo) {
+      query.claimedAt = {};
+      if (dateFrom) query.claimedAt.$gte = new Date(dateFrom as string);
+      if (dateTo) query.claimedAt.$lte = new Date(dateTo as string);
+    }
+    
+    // Fetch claimed donations
+    const claims = await DonationModel.find(query)
+      .populate('donorId', 'name businessName')
+      .sort({ claimedAt: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit))
+      .lean();
+    
+    const total = await DonationModel.countDocuments(query);
+    
+    // Transform donations to claim format
+    const transformedClaims = claims.map((donation: any) => ({
+      _id: donation._id,
+      donationId: {
+        _id: donation._id,
+        title: donation.title,
+        foodDetails: donation.foodDetails,
+        pickupLocation: donation.pickupLocation,
+        images: donation.images || []
+      },
+      donorId: donation.donorId,
+      status: mapDonationStatusToClaim(donation.status),
+      createdAt: donation.claimedAt || donation.createdAt,
+      updatedAt: donation.updatedAt,
+      beneficiariesServed: donation.beneficiariesServed || 0,
+      volunteersInvolved: donation.volunteersInvolved || 0,
+      distributionNotes: donation.distributionNotes || '',
+      pickupScheduledAt: donation.pickupDateTime,
+      deliveredAt: donation.deliveredAt
+    }));
+    
+    sendSuccess(res, {
+      claims: transformedClaims,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        totalPages: Math.ceil(total / Number(limit))
+      }
+    }, 'Claim history retrieved successfully');
+  } catch (e) {
+    console.error('NGO claims error:', e);
+    next(e);
+  }
+});
+
+// Get NGO's claim statistics
+router.get('/ngo/stats', authenticateNGO, async (req, res, next) => {
+  try {
+    const claims = await DonationModel.find({ claimedBy: req.ngo._id });
+    
+    const stats = {
+      totalClaims: claims.length,
+      approvedClaims: claims.filter(d => d.status === 'pickup_scheduled' || d.status === 'picked_up').length,
+      completedClaims: claims.filter(d => d.status === 'delivered').length,
+      totalServings: claims.reduce((sum, d) => sum + (d.foodDetails?.estimatedServings || 0), 0),
+      totalBeneficiaries: claims.reduce((sum, d) => sum + (d.beneficiariesServed || 0), 0),
+    };
+    
+    sendSuccess(res, stats, 'NGO statistics retrieved successfully');
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Helper function to map donation status to claim status
+function mapDonationStatusToClaim(donationStatus: string): string {
+  const statusMap: any = {
+    'claimed': 'pending',
+    'pickup_scheduled': 'approved',
+    'picked_up': 'picked_up',
+    'delivered': 'delivered',
+    'cancelled': 'cancelled',
+    'expired': 'cancelled'
+  };
+  return statusMap[donationStatus] || donationStatus;
+}
 
 export default router;
