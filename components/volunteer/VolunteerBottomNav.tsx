@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { IconButton } from 'react-native-paper';
 import { useRouter, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface NavItem {
   key: string;
@@ -13,6 +14,7 @@ interface NavItem {
 export default function VolunteerBottomNav() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const navItems: NavItem[] = [
     {
@@ -52,7 +54,7 @@ export default function VolunteerBottomNav() {
   const activeNavItem = getActiveKey();
 
   return (
-    <View style={styles.navigationBar}>
+    <View style={[styles.navigationBar, { paddingBottom: insets.bottom }]}>
       {navItems.map((item) => (
         <TouchableOpacity
           key={item.key}
@@ -107,6 +109,10 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   navItem: {
     flex: 1,

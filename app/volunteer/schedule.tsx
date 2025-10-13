@@ -20,26 +20,55 @@ export default function ScheduleScreen() {
     cancelTask,
   } = useVolunteerTasks();
 
-  // Group tasks by date (excluding completed tasks)
+  // Group tasks by date (excluding only completed tasks)
   const tasksByDate = useMemo(() => {
     const grouped: { [date: string]: VolunteerTask[] } = {};
     
-    // Filter out completed tasks
+    // Filter out only completed tasks (keep in_progress, assigned, accepted, cancelled)
     const activeTasks = tasks.filter(task => task.status !== 'completed');
     
-    activeTasks.forEach(task => {
-      const taskDate = new Date(task.pickupTime).toISOString().split('T')[0];
-      if (!grouped[taskDate]) {
-        grouped[taskDate] = [];
-      }
-      grouped[taskDate].push(task);
-    });
+    console.log('Schedule - All tasks:', tasks.length);
+    console.log('Schedule - Active tasks:', activeTasks.length);
+    console.log('Schedule - Active tasks details:', activeTasks.map(t => ({ id: t.id, status: t.status, pickupTime: t.pickupTime })));
+    
+     activeTasks.forEach(task => {
+       // Handle different date formats and fallbacks
+       let taskDate: string;
+       
+       try {
+         if (task.pickupTime) {
+           taskDate = new Date(task.pickupTime).toISOString().split('T')[0];
+           console.log('Task date from pickupTime:', { taskId: task.id, pickupTime: task.pickupTime, parsedDate: taskDate });
+         } else if (task.pickupSchedule?.availableFrom) {
+           taskDate = new Date(task.pickupSchedule.availableFrom).toISOString().split('T')[0];
+           console.log('Task date from pickupSchedule:', { taskId: task.id, availableFrom: task.pickupSchedule.availableFrom, parsedDate: taskDate });
+         } else {
+           // Fallback to today's date if no pickup time is available
+           taskDate = new Date().toISOString().split('T')[0];
+           console.log('Task date fallback to today:', { taskId: task.id, fallbackDate: taskDate });
+         }
+       } catch (error) {
+         console.log('Error parsing date for task:', task.id, error);
+         // Fallback to today's date
+         taskDate = new Date().toISOString().split('T')[0];
+       }
+       
+       if (!grouped[taskDate]) {
+         grouped[taskDate] = [];
+       }
+       grouped[taskDate].push(task);
+       console.log('Added task to date group:', { taskId: task.id, taskDate, status: task.status });
+     });
+
+    console.log('Schedule - Grouped tasks by date:', Object.keys(grouped).map(date => ({ date, count: grouped[date].length })));
 
     // Sort tasks within each date by pickup time
     Object.keys(grouped).forEach(date => {
-      grouped[date].sort((a, b) => 
-        new Date(a.pickupTime).getTime() - new Date(b.pickupTime).getTime()
-      );
+      grouped[date].sort((a, b) => {
+        const aTime = a.pickupTime || a.pickupSchedule?.availableFrom || new Date().toISOString();
+        const bTime = b.pickupTime || b.pickupSchedule?.availableFrom || new Date().toISOString();
+        return new Date(aTime).getTime() - new Date(bTime).getTime();
+      });
     });
 
     return grouped;
@@ -47,6 +76,15 @@ export default function ScheduleScreen() {
 
 
   const selectedDateTasks = tasksByDate[selectedDate] || [];
+  
+  // Debug logging
+  console.log('Schedule - Selected date:', selectedDate);
+  console.log('Schedule - Available dates:', Object.keys(tasksByDate));
+  console.log('Schedule - Tasks for selected date:', selectedDateTasks.length);
+  console.log('Schedule - Selected date tasks:', selectedDateTasks.map(t => ({ id: t.id, status: t.status, pickupTime: t.pickupTime })));
+  
+  // Use only tasks for the selected date (proper date filtering)
+  const displayTasks = selectedDateTasks;
 
   const handleTaskPress = (task: VolunteerTask) => {
     router.push(`/volunteer/task-detail?taskId=${task.id}`);
@@ -95,9 +133,9 @@ export default function ScheduleScreen() {
   };
 
   const getDateSummary = () => {
-    if (selectedDateTasks.length === 0) return 'No active tasks scheduled';
+    if (displayTasks.length === 0) return 'No active tasks scheduled';
     
-    const statusCounts = selectedDateTasks.reduce((acc, task) => {
+    const statusCounts = displayTasks.reduce((acc, task) => {
       acc[task.status] = (acc[task.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -106,6 +144,7 @@ export default function ScheduleScreen() {
     if (statusCounts.assigned) parts.push(`${statusCounts.assigned} new`);
     if (statusCounts.accepted) parts.push(`${statusCounts.accepted} accepted`);
     if (statusCounts.in_progress) parts.push(`${statusCounts.in_progress} in progress`);
+    if (statusCounts.cancelled) parts.push(`${statusCounts.cancelled} cancelled`);
 
     return parts.join(', ');
   };
@@ -173,7 +212,7 @@ export default function ScheduleScreen() {
                 <Text style={styles.dateSummary}>{getDateSummary()}</Text>
               </View>
               <View style={styles.taskCount}>
-                <Text style={styles.taskCountNumber}>{selectedDateTasks.length}</Text>
+                <Text style={styles.taskCountNumber}>{displayTasks.length}</Text>
                 <Text style={styles.taskCountLabel}>tasks</Text>
               </View>
             </View>
@@ -205,8 +244,8 @@ export default function ScheduleScreen() {
       {/* Tasks for Selected Date */}
       <View style={styles.tasksContainer}>
         <ScrollView showsVerticalScrollIndicator={false}>
-          {selectedDateTasks.length > 0 ? (
-            selectedDateTasks.map(task => (
+          {displayTasks.length > 0 ? (
+            displayTasks.map(task => (
               <TaskCard
                 key={task.id}
                 task={task}
@@ -223,7 +262,7 @@ export default function ScheduleScreen() {
               <Text style={styles.emptyIcon}>📅</Text>
               <Text style={styles.emptyTitle}>No Active Tasks This Day</Text>
               <Text style={styles.emptyMessage}>
-                You don't have any active tasks scheduled for this date. Completed tasks are not shown in the schedule.
+                You don't have any active tasks scheduled for this date. Only completed tasks are hidden from the schedule.
               </Text>
             </View>
           )}

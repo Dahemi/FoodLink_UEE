@@ -2,10 +2,13 @@ import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import VolunteerBottomNav from '../../components/volunteer/VolunteerBottomNav';
 
 export default function VolunteerLayout() {
+  const insets = useSafeAreaInsets();
+  
   return (
     <ProtectedRoute requireAuth={true} requireRole="volunteer">
       <View style={styles.container}>
@@ -18,7 +21,10 @@ export default function VolunteerLayout() {
             headerTitleStyle: {
               fontWeight: '600',
             },
-            contentStyle: { backgroundColor: '#FFFFFF' },
+            contentStyle: { 
+              backgroundColor: '#FFFFFF',
+              paddingBottom: 80 + insets.bottom, // Add padding for bottom nav + safe area
+            },
           }}
         >
           <Stack.Screen 
