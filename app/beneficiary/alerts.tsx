@@ -12,102 +12,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Chip, IconButton, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const BASE_KEY_CANDIDATES = [
-  '@beneficiary_auth',
-  'beneficiaryAuthToken',
-  'beneficiary_token',
-  'authToken',
-  'ngoAuthToken',
-];
-
-function getBaseUrl(): string {
-  const url = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
-  return url.replace(/\/$/, '');
-}
-
-async function resolveToken(): Promise<string | null> {
-  // Try common storage keys
-  for (const k of BASE_KEY_CANDIDATES) {
-    try {
-      const raw = await AsyncStorage.getItem(k);
-      if (!raw) continue;
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed?.token) return parsed.token;
-        if (parsed?.accessToken) return parsed.accessToken;
-      } catch {
-        // raw token string
-        return raw;
-      }
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
-async function httpWithAuth<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const base = getBaseUrl();
-  const token = await resolveToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers || {}),
-  };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${base}${path}`, { ...options, headers });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = json?.message || `Request failed (${res.status})`;
-    throw new Error(err);
-  }
-  return (json.data || json) as T;
-}
-
-export interface ServerNotification {
-  _id?: string;
-  notificationId?: string;
-  title: string;
-  body: string;
-  shortText?: string;
-  type?: string;
-  createdAt?: string;
-  isRead?: boolean;
-  recipientId?: string;
-  recipientType?: string;
-  data?: any;
-}
-
-export const NotificationApi = {
-  async getNotifications(recipientId?: string, recipientType: string = 'beneficiary'): Promise<ServerNotification[]> {
-    const q = new URLSearchParams();
-    if (recipientId) q.set('recipientId', recipientId);
-    q.set('recipientType', recipientType);
-    return await httpWithAuth<ServerNotification[]>(`/api/notifications?${q.toString()}`, { method: 'GET' });
-  },
-
-  async markAsRead(notificationId: string): Promise<void> {
-    await httpWithAuth(`/api/notifications/${notificationId}/mark-read`, {
-      method: 'POST',
-      body: JSON.stringify({ notificationId }),
-    });
-  },
-
-  async markMultipleAsRead(notificationIds: string[], recipientId?: string): Promise<void> {
-    await httpWithAuth(`/api/notifications/mark-read`, {
-      method: 'POST',
-      body: JSON.stringify({ notificationIds, recipientId }),
-    });
-  },
-
-  async deleteAllForRecipient(recipientId: string, recipientType: string = 'beneficiary'): Promise<void> {
-    await httpWithAuth(`/api/notifications/clear`, {
-      method: 'POST',
-      body: JSON.stringify({ recipientId, recipientType }),
-    });
-  }
-};
+import { NotificationApi, ServerNotification } from '../../services/notificationApi';
+import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 const { width } = Dimensions.get('window');
 
@@ -116,109 +23,158 @@ interface AlertItem {
     title: string;
     shortText?: string;
     time: string;
-    type: 'donation' | 'task' | 'system' | 'general';
+    type: string;
     read?: boolean;
+    raw?: ServerNotification; // Store original notification data
 }
-
-const STORAGE_KEY = '@beneficiary_alerts_v1';
-
-const DEFAULT_ALERTS: AlertItem[] = [
-    { id: 'a1', title: 'New Donation Nearby', shortText: 'Fresh meals available 0.8 mi away', time: '10m ago', type: 'donation', read: false },
-    { id: 'a2', title: 'Pickup Reminder', shortText: 'Your scheduled pickup at 3:00 PM', time: '1h ago', type: 'task', read: false },
-    { id: 'a3', title: 'System Notice', shortText: 'Maintenance tonight 11PM - 12AM', time: 'Yesterday', type: 'system', read: true },
-];
 
 export default function BeneficiaryAlerts() {
     const router = useRouter();
+    const { authState } = useBeneficiaryAuth();
     const [alerts, setAlerts] = useState<AlertItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        loadAlerts();
-    }, []);
-
+    // Load notifications from server
     const loadAlerts = async () => {
         try {
             setLoading(true);
-            const raw = await AsyncStorage.getItem(STORAGE_KEY);
-            if (raw) {
-                setAlerts(JSON.parse(raw));
-            } else {
-                setAlerts(DEFAULT_ALERTS);
-                await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ALERTS));
+            if (!authState.user?.id) {
+                console.warn('No user ID available');
+                return;
             }
+
+            const serverNotifications = await NotificationApi.getNotifications(
+                authState.user.id,
+                'beneficiary'
+            );
+
+            // Transform server notifications to AlertItem format
+            const transformed: AlertItem[] = serverNotifications
+                .filter(n => n.recipientType === 'beneficiary') // Show all beneficiary notifications
+                .map(notification => ({
+                    id: notification.notificationId || notification._id || String(Math.random()),
+                    title: notification.title,
+                    shortText: notification.shortText || notification.body,
+                    time: formatTime(notification.createdAt || new Date()),
+                    type: notification.type || 'general',
+                    read: notification.isRead,
+                    raw: notification
+                }));
+
+            setAlerts(transformed);
         } catch (err) {
-            console.error('Failed to load alerts', err);
-            setAlerts(DEFAULT_ALERTS);
+            console.error('Failed to load notifications:', err);
+            Alert.alert('Error', 'Failed to load notifications. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    const saveAlerts = async (next: AlertItem[]) => {
-        try {
-            setAlerts(next);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } catch (err) {
-            console.error('Failed to save alerts', err);
-        }
+    useEffect(() => {
+        loadAlerts();
+    }, [authState.user?.id]);
+
+    const formatTime = (date: string | Date) => {
+        const now = new Date();
+        const notifDate = new Date(date);
+        const diff = now.getTime() - notifDate.getTime();
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days === 1) return 'Yesterday';
+        return notifDate.toLocaleDateString();
     };
 
     const onRefresh = async () => {
         setRefreshing(true);
-        // Simulate fetching a new alert: add simple mock alert on refresh
-        const newAlert: AlertItem = {
-            id: Date.now().toString(),
-            title: 'New Nearby Food Point',
-            shortText: 'A community kitchen just posted fresh meals nearby.',
-            time: 'Just now',
-            type: 'donation',
-            read: false,
-        };
-        const next = [newAlert, ...alerts];
-        await saveAlerts(next);
-        setTimeout(() => setRefreshing(false), 600);
+        await loadAlerts();
+        setRefreshing(false);
     };
 
     const openAlert = async (item: AlertItem) => {
-        // Mark as read when opened
-        if (!item.read) {
-            const next = alerts.map(a => a.id === item.id ? { ...a, read: true } : a);
-            await saveAlerts(next);
+        try {
+            if (!item.read && item.raw?.notificationId) {
+                await NotificationApi.markAsRead(item.raw.notificationId);
+                setAlerts(prev => 
+                    prev.map(a => a.id === item.id ? { ...a, read: true } : a)
+                );
+            }
+
+            // Handle donation notifications by navigating to map
+            if (item.raw?.type === 'donation_available' && item.raw.data?.location) {
+                const { location } = item.raw.data;
+                router.push(`/beneficiary/map?lat=${location.coordinates.latitude}&lng=${location.coordinates.longitude}&id=${item.raw.data.ngoId}`);
+            } else {
+                Alert.alert(item.title, item.shortText || '');
+            }
+        } catch (err) {
+            console.error('Failed to handle notification:', err);
         }
-        Alert.alert(item.title, item.shortText || '');
     };
 
     const markAllRead = async () => {
-        const next = alerts.map(a => ({ ...a, read: true }));
-        await saveAlerts(next);
+        try {
+            const unreadIds = alerts
+                .filter(a => !a.read && a.raw?.notificationId)
+                .map(a => a.raw!.notificationId!);
+
+            if (unreadIds.length > 0) {
+                await NotificationApi.markMultipleAsRead(unreadIds, authState.user?.id);
+                setAlerts(prev => prev.map(a => ({ ...a, read: true })));
+            }
+        } catch (err) {
+            console.error('Failed to mark all as read:', err);
+            Alert.alert('Error', 'Failed to update notifications');
+        }
     };
 
     const clearAll = () => {
-        Alert.alert('Clear All Alerts', 'Are you sure you want to remove all alerts?', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-                text: 'Clear',
-                style: 'destructive',
-                onPress: async () => {
-                    await saveAlerts([]);
+        Alert.alert(
+            'Clear All Alerts',
+            'Are you sure you want to remove all alerts?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            if (authState.user?.id) {
+                                await NotificationApi.deleteAllForRecipient(
+                                    authState.user.id,
+                                    'beneficiary'
+                                );
+                                setAlerts([]);
+                            }
+                        } catch (err) {
+                            console.error('Failed to clear notifications:', err);
+                            Alert.alert('Error', 'Failed to clear notifications');
+                        }
+                    },
                 },
-            },
-        ]);
+            ]
+        );
     };
 
-    const toggleRead = async (id: string) => {
-        const next = alerts.map(a => a.id === id ? { ...a, read: !a.read } : a);
-        await saveAlerts(next);
-    };
+    if (loading) {
+        return <LoadingSpinner message="Loading notifications..." />;
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
                 <Text style={styles.title}>Alerts</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Button compact mode="text" onPress={markAllRead} labelStyle={{ color: '#FF8A50', fontWeight: '600' }}>
+                    <Button 
+                        compact 
+                        mode="text" 
+                        onPress={markAllRead}
+                        labelStyle={{ color: '#FF8A50', fontWeight: '600' }}
+                    >
                         Mark all read
                     </Button>
                     <IconButton
@@ -232,33 +188,45 @@ export default function BeneficiaryAlerts() {
 
             <ScrollView
                 contentContainerStyle={styles.list}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A50']} />}
+                refreshControl={
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={onRefresh}
+                        colors={['#FF8A50']}
+                    />
+                }
             >
-                {alerts.map((a) => (
+                {alerts.map((alert) => (
                     <TouchableOpacity
-                        key={a.id}
+                        key={alert.id}
                         activeOpacity={0.85}
-                        onPress={() => openAlert(a)}
-                        onLongPress={() => toggleRead(a.id)}
+                        onPress={() => openAlert(alert)}
                         style={styles.touchable}
                     >
-                        <Card style={[styles.card, a.read ? styles.readCard : null]}>
+                        <Card style={[styles.card, alert.read && styles.readCard]}>
                             <View style={styles.cardContent}>
                                 <View style={styles.left}>
                                     <Text style={styles.emoji}>
-                                        {a.type === 'donation' ? '📦' : a.type === 'task' ? '📅' : a.type === 'system' ? '⚙️' : '🔔'}
+                                        {getEmojiForType(alert.type)}
                                     </Text>
-
                                     <View style={styles.info}>
-                                        <Text style={[styles.alertTitle, a.read ? { color: '#A0AEC0' } : null]}>{a.title}</Text>
-                                        {a.shortText ? <Text style={styles.subtitle}>{a.shortText}</Text> : null}
+                                        <Text style={[
+                                            styles.alertTitle,
+                                            alert.read && { color: '#A0AEC0' }
+                                        ]}>
+                                            {alert.title}
+                                        </Text>
+                                        {alert.shortText ? (
+                                            <Text style={styles.subtitle}>
+                                                {alert.shortText}
+                                            </Text>
+                                        ) : null}
                                     </View>
                                 </View>
-
                                 <View style={styles.right}>
-                                    <Text style={styles.time}>{a.time}</Text>
+                                    <Text style={styles.time}>{alert.time}</Text>
                                     <Chip style={styles.chip} textStyle={styles.chipText}>
-                                        {a.type}
+                                        {formatType(alert.type)}
                                     </Chip>
                                 </View>
                             </View>
@@ -268,7 +236,9 @@ export default function BeneficiaryAlerts() {
 
                 {alerts.length === 0 && (
                     <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No alerts right now.</Text>
+                        <Text style={styles.emptyText}>
+                            No notifications yet
+                        </Text>
                     </View>
                 )}
 
@@ -277,6 +247,21 @@ export default function BeneficiaryAlerts() {
         </SafeAreaView>
     );
 }
+
+// Helper functions
+const getEmojiForType = (type: string) => {
+    switch (type) {
+        case 'donation_available': return '🍽️';
+        case 'distribution': return '🍽️';
+        case 'reminder': return '⏰';
+        case 'system': return '⚙️';
+        default: return '🔔';
+    }
+};
+
+const formatType = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+};
 
 const styles = StyleSheet.create({
     container: {

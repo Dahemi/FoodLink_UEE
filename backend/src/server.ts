@@ -7,6 +7,7 @@ import { connectDatabase, setupGracefulShutdown } from './config/database.js';
 import apiRoutes from './routes/index.js';
 import donorAuthRoutes from './routes/donorAuthRoutes.js';
 import donationRoutes from './routes/donationRoutes.js';
+import acceptedDonationRoutes from './routes/acceptedDonationRoutes.js';
 
 // Validate environment variables
 validateEnvironment();
@@ -38,6 +39,7 @@ app.use('/api', apiRoutes);
 //app.use('/api/auth/volunteer', volunteerAuthRoutes);
 app.use('/api/auth/donor', donorAuthRoutes);
 app.use('/api/donations', donationRoutes);
+app.use('/api/accepted-donations', acceptedDonationRoutes);
 
 // Global error handler
 app.use(
