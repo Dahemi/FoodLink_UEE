@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Alert, Text, TouchableOpacity, Image, Modal, SafeAreaView, ScrollView, Pressable, Dimensions } from 'react-native';
-import MapView, { Marker, MapViewProps } from 'react-native-maps';
+import MapView, { Marker, MapViewProps, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -9,6 +9,8 @@ import { useAuth } from '../../context/AuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { NavigationService } from '../../services/navigationService';
 import { FoodPointReminderService } from '../../services/foodPointReminderService';
+import { DirectionsApi } from '../../services/directionsApi';
+import { LocationService } from '../../services/LocationService';
 
 interface NGOItem {
   id: string;
@@ -35,9 +37,16 @@ export default function FoodFinderMap() {
   });
   const [ngos, setNgos] = useState<NGOItem[]>([]);
   const [selectedNgo, setSelectedNgo] = useState<NGOItem | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[] | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distanceText?: string; durationText?: string } | null>(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
   // New: full/detail view visible state (replaces separate route)
   const [fullDetailsVisible, setFullDetailsVisible] = useState(false);
+
+  // Read incoming query params when navigating from Home -> Map
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; id?: string; ts?: string }>();
+  const lastPanRef = useRef<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -62,6 +71,39 @@ export default function FoodFinderMap() {
 
     fetchNgos();
   }, []);
+
+  useEffect(() => {
+    if (!params?.lat || !params?.lng) return;
+
+    const lat = Number(params.lat);
+    const lng = Number(params.lng);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    // Build a key that includes id + coordinates + timestamp (ts) so repeated taps always produce a new key
+    const key = `${params.id ?? ''}@${params.lat},${params.lng}@${params.ts ?? ''}`;
+
+    // If we've already panned for this exact key, skip; otherwise animate & select
+    if (lastPanRef.current === key) return;
+    lastPanRef.current = key;
+
+    // Small timeout to ensure map has mounted/rendered
+    setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(
+          { latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+          350
+        );
+      }
+
+      // Populate a minimal selectedNgo so the callout / bottom sheet can show if needed
+      setSelectedNgo(prev => ({
+        id: params.id || prev?.id || `p-${Date.now()}`,
+        name: params?.name || prev?.name || 'Location',
+        address: params?.address || prev?.address || '',
+        coordinates: { latitude: lat, longitude: lng },
+      } as any));
+    }, 120);
+  }, [params?.lat, params?.lng, params?.id, params?.ts]);
 
   const resolveToken = async (): Promise<string | null> => {
     const tFromCtx = (authState as any)?.token || (authState as any)?.accessToken;
@@ -171,6 +213,32 @@ export default function FoodFinderMap() {
     NavigationService.openMaps(addr, ngo.name);
   };
 
+  const handleGetDirections = async (ngo: NGOItem) => {
+    if (!ngo?.coordinates) return Alert.alert('No coordinates available');
+    try {
+      setLoadingRoute(true);
+      const origin = await LocationService.getCurrentLocation();
+      if (!origin) {
+        Alert.alert('Location required', 'Allow location access to show directions.');
+        setLoadingRoute(false);
+        return;
+      }
+      const res = await DirectionsApi.getDirections(origin, ngo.coordinates as { latitude: number; longitude: number });
+      setRouteCoords(res.coordinates);
+      setRouteInfo({ distanceText: res.distanceText, durationText: res.durationText });
+      // Fit map to route: animate to first point then region covering middle - simple approach
+      const middle = res.coordinates[Math.floor(res.coordinates.length / 2)];
+      if (mapRef.current && middle) {
+        mapRef.current.animateToRegion({ latitude: middle.latitude, longitude: middle.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 400);
+      }
+    } catch (err: any) {
+      console.warn('Directions failed', err);
+      Alert.alert('Directions error', err?.message || 'Could not get directions');
+    } finally {
+      setLoadingRoute(false);
+    }
+  };
+
   // Open the in-screen detail sheet (no new navigation)
   const handleSeeDetails = (ngo: NGOItem) => {
     setSelectedNgo(ngo);
@@ -203,7 +271,20 @@ export default function FoodFinderMap() {
             onPress={() => onMarkerPress(ngo)}
           />
         ))}
+
+        {/* render route if available */}
+        {routeCoords && routeCoords.length > 1 && (
+          <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#FF8A50" lineCap="round" lineJoin="round" />
+        )}
       </MapView>
+
+      {/* small info bar when route is present */}
+      {routeInfo && (
+        <View style={{ position: 'absolute', top: 80, left: 12, right: 12, padding: 10, backgroundColor: '#FFFFFF', borderRadius: 8, elevation: 4 }}>
+          <Text style={{ fontWeight: '700' }}>{routeInfo.durationText || '—'}</Text>
+          <Text style={{ color: '#718096' }}>{routeInfo.distanceText || ''}</Text>
+        </View>
+      )}
 
       {/* Bottom callout */}
       {selectedNgo && !fullDetailsVisible && (
