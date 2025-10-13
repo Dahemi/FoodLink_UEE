@@ -20,11 +20,14 @@ export default function ScheduleScreen() {
     cancelTask,
   } = useVolunteerTasks();
 
-  // Group tasks by date
+  // Group tasks by date (excluding completed tasks)
   const tasksByDate = useMemo(() => {
     const grouped: { [date: string]: VolunteerTask[] } = {};
     
-    tasks.forEach(task => {
+    // Filter out completed tasks
+    const activeTasks = tasks.filter(task => task.status !== 'completed');
+    
+    activeTasks.forEach(task => {
       const taskDate = new Date(task.pickupTime).toISOString().split('T')[0];
       if (!grouped[taskDate]) {
         grouped[taskDate] = [];
@@ -42,37 +45,6 @@ export default function ScheduleScreen() {
     return grouped;
   }, [tasks]);
 
-  // Get dates that have tasks for calendar marking
-  const markedDates = useMemo(() => {
-    const marked: { [date: string]: any } = {};
-    
-    Object.keys(tasksByDate).forEach(date => {
-      const tasksOnDate = tasksByDate[date];
-      const hasUrgent = tasksOnDate.some(task => task.priority === 'high');
-      const hasActive = tasksOnDate.some(task => 
-        ['assigned', 'accepted', 'in_progress'].includes(task.status)
-      );
-
-      marked[date] = {
-        marked: true,
-        dotColor: hasUrgent ? '#F44336' : hasActive ? '#FF9800' : '#4CAF50',
-        selectedColor: date === selectedDate ? '#FF8A50' : undefined,
-      };
-    });
-
-    // Mark selected date
-    if (!marked[selectedDate]) {
-      marked[selectedDate] = {
-        selected: true,
-        selectedColor: '#FF8A50',
-      };
-    } else {
-      marked[selectedDate].selected = true;
-      marked[selectedDate].selectedColor = '#FF8A50';
-    }
-
-    return marked;
-  }, [tasksByDate, selectedDate]);
 
   const selectedDateTasks = tasksByDate[selectedDate] || [];
 
@@ -123,7 +95,7 @@ export default function ScheduleScreen() {
   };
 
   const getDateSummary = () => {
-    if (selectedDateTasks.length === 0) return 'No tasks scheduled';
+    if (selectedDateTasks.length === 0) return 'No active tasks scheduled';
     
     const statusCounts = selectedDateTasks.reduce((acc, task) => {
       acc[task.status] = (acc[task.status] || 0) + 1;
@@ -134,7 +106,6 @@ export default function ScheduleScreen() {
     if (statusCounts.assigned) parts.push(`${statusCounts.assigned} new`);
     if (statusCounts.accepted) parts.push(`${statusCounts.accepted} accepted`);
     if (statusCounts.in_progress) parts.push(`${statusCounts.in_progress} in progress`);
-    if (statusCounts.completed) parts.push(`${statusCounts.completed} completed`);
 
     return parts.join(', ');
   };
@@ -156,70 +127,39 @@ export default function ScheduleScreen() {
             <Text style={styles.calendarTitle}>Select Date</Text>
             <View style={styles.dateSelector}>
               <Button
-                mode="outlined"
+                mode={selectedDate === new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0] ? 'contained' : 'outlined'}
                 onPress={() => {
                   const today = new Date();
                   const yesterday = new Date(today);
                   yesterday.setDate(yesterday.getDate() - 1);
                   setSelectedDate(yesterday.toISOString().split('T')[0]);
                 }}
-                style={styles.dateButton}
+                style={[styles.dateButton, selectedDate === new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0] && styles.selectedDateButton]}
               >
                 Yesterday
               </Button>
               <Button
-                mode="contained"
+                mode={selectedDate === new Date().toISOString().split('T')[0] ? 'contained' : 'outlined'}
                 onPress={() => {
                   const today = new Date();
                   setSelectedDate(today.toISOString().split('T')[0]);
                 }}
-                style={[styles.dateButton, styles.todayButton]}
+                style={[styles.dateButton, selectedDate === new Date().toISOString().split('T')[0] && styles.todayButton]}
               >
                 Today
               </Button>
               <Button
-                mode="outlined"
+                mode={selectedDate === new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] ? 'contained' : 'outlined'}
                 onPress={() => {
                   const today = new Date();
                   const tomorrow = new Date(today);
                   tomorrow.setDate(tomorrow.getDate() + 1);
                   setSelectedDate(tomorrow.toISOString().split('T')[0]);
                 }}
-                style={styles.dateButton}
+                style={[styles.dateButton, selectedDate === new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0] && styles.selectedDateButton]}
               >
                 Tomorrow
               </Button>
-            </View>
-            
-            {/* Date with tasks indicator */}
-            <View style={styles.dateIndicators}>
-              {Object.keys(tasksByDate).map(date => {
-                const tasksOnDate = tasksByDate[date];
-                const hasUrgent = tasksOnDate.some(task => task.priority === 'high');
-                const hasActive = tasksOnDate.some(task => 
-                  ['assigned', 'accepted', 'in_progress'].includes(task.status)
-                );
-                
-                return (
-                  <Button
-                    key={date}
-                    mode={selectedDate === date ? 'contained' : 'outlined'}
-                    onPress={() => setSelectedDate(date)}
-                    style={[
-                      styles.dateIndicator,
-                      selectedDate === date && styles.selectedDateIndicator
-                    ]}
-                    labelStyle={styles.dateIndicatorLabel}
-                  >
-                    {new Date(date).toLocaleDateString('en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
-                    })}
-                    {hasUrgent && <Text style={styles.urgentDot}> 🔴</Text>}
-                    {!hasUrgent && hasActive && <Text style={styles.activeDot}> 🟠</Text>}
-                  </Button>
-                );
-              })}
             </View>
           </View>
         </Card>
@@ -251,11 +191,11 @@ export default function ScheduleScreen() {
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: '#FF9800' }]} />
-                <Text style={styles.legendText}>Active Tasks</Text>
+                <Text style={styles.legendText}>Medium Priority</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: '#4CAF50' }]} />
-                <Text style={styles.legendText}>Completed</Text>
+                <Text style={styles.legendText}>Low Priority</Text>
               </View>
             </View>
           </View>
@@ -281,9 +221,9 @@ export default function ScheduleScreen() {
           ) : (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>📅</Text>
-              <Text style={styles.emptyTitle}>No Tasks This Day</Text>
+              <Text style={styles.emptyTitle}>No Active Tasks This Day</Text>
               <Text style={styles.emptyMessage}>
-                You don't have any tasks scheduled for this date.
+                You don't have any active tasks scheduled for this date. Completed tasks are not shown in the schedule.
               </Text>
             </View>
           )}
@@ -346,25 +286,8 @@ const styles = StyleSheet.create({
   todayButton: {
     backgroundColor: '#FF8A50',
   },
-  dateIndicators: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  dateIndicator: {
-    marginBottom: 8,
-  },
-  selectedDateIndicator: {
+  selectedDateButton: {
     backgroundColor: '#FF8A50',
-  },
-  dateIndicatorLabel: {
-    fontSize: 12,
-  },
-  urgentDot: {
-    fontSize: 12,
-  },
-  activeDot: {
-    fontSize: 12,
   },
   dateInfoCard: {
     marginHorizontal: 20,
