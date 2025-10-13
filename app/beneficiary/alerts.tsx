@@ -14,6 +14,101 @@ import { Card, Chip, IconButton, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const BASE_KEY_CANDIDATES = [
+  '@beneficiary_auth',
+  'beneficiaryAuthToken',
+  'beneficiary_token',
+  'authToken',
+  'ngoAuthToken',
+];
+
+function getBaseUrl(): string {
+  const url = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
+  return url.replace(/\/$/, '');
+}
+
+async function resolveToken(): Promise<string | null> {
+  // Try common storage keys
+  for (const k of BASE_KEY_CANDIDATES) {
+    try {
+      const raw = await AsyncStorage.getItem(k);
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.token) return parsed.token;
+        if (parsed?.accessToken) return parsed.accessToken;
+      } catch {
+        // raw token string
+        return raw;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function httpWithAuth<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const base = getBaseUrl();
+  const token = await resolveToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers || {}),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${base}${path}`, { ...options, headers });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = json?.message || `Request failed (${res.status})`;
+    throw new Error(err);
+  }
+  return (json.data || json) as T;
+}
+
+export interface ServerNotification {
+  _id?: string;
+  notificationId?: string;
+  title: string;
+  body: string;
+  shortText?: string;
+  type?: string;
+  createdAt?: string;
+  isRead?: boolean;
+  recipientId?: string;
+  recipientType?: string;
+  data?: any;
+}
+
+export const NotificationApi = {
+  async getNotifications(recipientId?: string, recipientType: string = 'beneficiary'): Promise<ServerNotification[]> {
+    const q = new URLSearchParams();
+    if (recipientId) q.set('recipientId', recipientId);
+    q.set('recipientType', recipientType);
+    return await httpWithAuth<ServerNotification[]>(`/api/notifications?${q.toString()}`, { method: 'GET' });
+  },
+
+  async markAsRead(notificationId: string): Promise<void> {
+    await httpWithAuth(`/api/notifications/${notificationId}/mark-read`, {
+      method: 'POST',
+      body: JSON.stringify({ notificationId }),
+    });
+  },
+
+  async markMultipleAsRead(notificationIds: string[], recipientId?: string): Promise<void> {
+    await httpWithAuth(`/api/notifications/mark-read`, {
+      method: 'POST',
+      body: JSON.stringify({ notificationIds, recipientId }),
+    });
+  },
+
+  async deleteAllForRecipient(recipientId: string, recipientType: string = 'beneficiary'): Promise<void> {
+    await httpWithAuth(`/api/notifications/clear`, {
+      method: 'POST',
+      body: JSON.stringify({ recipientId, recipientType }),
+    });
+  }
+};
+
 const { width } = Dimensions.get('window');
 
 interface AlertItem {
