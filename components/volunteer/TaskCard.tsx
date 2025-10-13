@@ -205,36 +205,95 @@ export default function TaskCard({
           </View>
         </View>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <IconButton
-            icon="phone"
-            size={20}
-            iconColor="#4CAF50"
-            style={styles.quickActionButton}
-            onPress={() => handleQuickCall(task.donorInfo.phone, 'donor')}
-          />
-          <IconButton
-            icon="map-marker"
-            size={20}
-            iconColor="#2196F3"
-            style={styles.quickActionButton}
-            onPress={() => handleQuickNavigation(task.donorInfo.address, task.donorInfo.name)}
-          />
-          <IconButton
-            icon="phone-outline"
-            size={20}
-            iconColor="#4CAF50"
-            style={styles.quickActionButton}
-            onPress={() => handleQuickCall(task.ngoInfo.phone, 'ngo')}
-          />
-          <IconButton
-            icon="map-marker-outline"
-            size={20}
-            iconColor="#2196F3"
-            style={styles.quickActionButton}
-            onPress={() => handleQuickNavigation(task.ngoInfo.address, task.ngoInfo.name)}
-          />
+        {/* Modern Quick Actions with Cards */}
+        <View style={styles.quickActionsContainer}>
+          {/* Pickup Card */}
+          <View style={styles.locationCard}>
+            <View style={styles.locationCardHeader}>
+              <View style={[styles.locationIconContainer, styles.pickupIconContainer]}>
+                <IconButton
+                  icon="package-variant"
+                  size={20}
+                  iconColor="#FF8A50"
+                  style={styles.locationIconButton}
+                />
+              </View>
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationName}>Pickup from {task.donorInfo.name}</Text>
+                <Text style={styles.locationAddress} numberOfLines={1}>{task.donorInfo.address}</Text>
+              </View>
+            </View>
+            <View style={styles.locationActions}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.callButton]}
+                onPress={() => handleQuickCall(task.donorInfo.phone, 'donor')}
+              >
+                <IconButton
+                  icon="phone"
+                  size={16}
+                  iconColor="#4CAF50"
+                  style={styles.actionIconButton}
+                />
+                <Text style={styles.actionButtonText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.navigateButton]}
+                onPress={() => handleQuickNavigation(task.donorInfo.address, task.donorInfo.name)}
+              >
+                <IconButton
+                  icon="navigation"
+                  size={16}
+                  iconColor="#2196F3"
+                  style={styles.actionIconButton}
+                />
+                <Text style={styles.actionButtonText}>Navigate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Delivery Card */}
+          <View style={styles.locationCard}>
+            <View style={styles.locationCardHeader}>
+              <View style={[styles.locationIconContainer, styles.deliveryIconContainer]}>
+                <IconButton
+                  icon="office-building"
+                  size={20}
+                  iconColor="#4CAF50"
+                  style={styles.locationIconButton}
+                />
+              </View>
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationName}>Deliver to {task.ngoInfo.name}</Text>
+                <Text style={styles.locationAddress} numberOfLines={1}>{task.ngoInfo.address}</Text>
+              </View>
+            </View>
+            <View style={styles.locationActions}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.callButton]}
+                onPress={() => handleQuickCall(task.ngoInfo.phone, 'ngo')}
+              >
+                <IconButton
+                  icon="phone"
+                  size={16}
+                  iconColor="#4CAF50"
+                  style={styles.actionIconButton}
+                />
+                <Text style={styles.actionButtonText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.navigateButton]}
+                onPress={() => handleQuickNavigation(task.ngoInfo.address, task.ngoInfo.name)}
+              >
+                <IconButton
+                  icon="navigation"
+                  size={16}
+                  iconColor="#2196F3"
+                  style={styles.actionIconButton}
+                />
+                <Text style={styles.actionButtonText}>Navigate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Action Buttons */}
@@ -376,17 +435,92 @@ const styles = StyleSheet.create({
     color: '#718096',
     fontWeight: '500',
   },
-  quickActions: {
+  quickActionsContainer: {
+    marginBottom: 12,
+    gap: 12,
+  },
+  locationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  locationCardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
     alignItems: 'center',
     marginBottom: 12,
-    paddingVertical: 8,
-    backgroundColor: '#F7FAFC',
-    borderRadius: 8,
   },
-  quickActionButton: {
+  locationIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  pickupIconContainer: {
+    backgroundColor: '#FFF5E6',
+  },
+  deliveryIconContainer: {
+    backgroundColor: '#E8F5E8',
+  },
+  locationIconButton: {
     margin: 0,
+  },
+  actionIconButton: {
+    margin: 0,
+  },
+  locationInfo: {
+    flex: 1,
+  },
+  locationName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 2,
+  },
+  locationAddress: {
+    fontSize: 12,
+    color: '#718096',
+    lineHeight: 16,
+  },
+  locationActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 6,
+  },
+  callButton: {
+    backgroundColor: '#E8F5E8',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+  },
+  navigateButton: {
+    backgroundColor: '#E3F2FD',
+    borderWidth: 1,
+    borderColor: '#BBDEFB',
+  },
+  actionButtonIcon: {
+    fontSize: 16,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2D3748',
   },
   actionButtons: {
     flexDirection: 'row',
