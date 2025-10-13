@@ -10,8 +10,9 @@ import {
     Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Chip, IconButton } from 'react-native-paper';
+import { Card, Chip, IconButton, Button } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -24,7 +25,9 @@ interface AlertItem {
     read?: boolean;
 }
 
-const EXAMPLE_ALERTS: AlertItem[] = [
+const STORAGE_KEY = '@beneficiary_alerts_v1';
+
+const DEFAULT_ALERTS: AlertItem[] = [
     { id: 'a1', title: 'New Donation Nearby', shortText: 'Fresh meals available 0.8 mi away', time: '10m ago', type: 'donation', read: false },
     { id: 'a2', title: 'Pickup Reminder', shortText: 'Your scheduled pickup at 3:00 PM', time: '1h ago', type: 'task', read: false },
     { id: 'a3', title: 'System Notice', shortText: 'Maintenance tonight 11PM - 12AM', time: 'Yesterday', type: 'system', read: true },
@@ -34,47 +37,114 @@ export default function BeneficiaryAlerts() {
     const router = useRouter();
     const [alerts, setAlerts] = useState<AlertItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Load real alerts from API when available. For now use example data.
-        setAlerts(EXAMPLE_ALERTS);
+        loadAlerts();
     }, []);
+
+    const loadAlerts = async () => {
+        try {
+            setLoading(true);
+            const raw = await AsyncStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                setAlerts(JSON.parse(raw));
+            } else {
+                setAlerts(DEFAULT_ALERTS);
+                await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ALERTS));
+            }
+        } catch (err) {
+            console.error('Failed to load alerts', err);
+            setAlerts(DEFAULT_ALERTS);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const saveAlerts = async (next: AlertItem[]) => {
+        try {
+            setAlerts(next);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch (err) {
+            console.error('Failed to save alerts', err);
+        }
+    };
 
     const onRefresh = async () => {
         setRefreshing(true);
-        // TODO: replace with real fetch call
-        setTimeout(() => {
-            setAlerts(EXAMPLE_ALERTS);
-            setRefreshing(false);
-        }, 800);
+        // Simulate fetching a new alert: add simple mock alert on refresh
+        const newAlert: AlertItem = {
+            id: Date.now().toString(),
+            title: 'New Nearby Food Point',
+            shortText: 'A community kitchen just posted fresh meals nearby.',
+            time: 'Just now',
+            type: 'donation',
+            read: false,
+        };
+        const next = [newAlert, ...alerts];
+        await saveAlerts(next);
+        setTimeout(() => setRefreshing(false), 600);
     };
 
-    const openAlert = (item: AlertItem) => {
-        // If you have an alert details page, navigate there.
-        // e.g. router.push(`/beneficiary/alert-details?id=${item.id}`)
+    const openAlert = async (item: AlertItem) => {
+        // Mark as read when opened
+        if (!item.read) {
+            const next = alerts.map(a => a.id === item.id ? { ...a, read: true } : a);
+            await saveAlerts(next);
+        }
         Alert.alert(item.title, item.shortText || '');
+    };
+
+    const markAllRead = async () => {
+        const next = alerts.map(a => ({ ...a, read: true }));
+        await saveAlerts(next);
+    };
+
+    const clearAll = () => {
+        Alert.alert('Clear All Alerts', 'Are you sure you want to remove all alerts?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Clear',
+                style: 'destructive',
+                onPress: async () => {
+                    await saveAlerts([]);
+                },
+            },
+        ]);
+    };
+
+    const toggleRead = async (id: string) => {
+        const next = alerts.map(a => a.id === id ? { ...a, read: !a.read } : a);
+        await saveAlerts(next);
     };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
                 <Text style={styles.title}>Alerts</Text>
-                <IconButton
-                    icon="bell-outline"
-                    size={22}
-                    onPress={() => Alert.alert('Notifications', 'Manage alert settings in Profile')}
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Button compact mode="text" onPress={markAllRead} labelStyle={{ color: '#FF8A50', fontWeight: '600' }}>
+                        Mark all read
+                    </Button>
+                    <IconButton
+                        icon="trash-can-outline"
+                        size={22}
+                        onPress={clearAll}
+                        iconColor="#F56565"
+                    />
+                </View>
             </View>
 
             <ScrollView
                 contentContainerStyle={styles.list}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#FF8A50']} />}
             >
                 {alerts.map((a) => (
                     <TouchableOpacity
                         key={a.id}
                         activeOpacity={0.85}
                         onPress={() => openAlert(a)}
+                        onLongPress={() => toggleRead(a.id)}
                         style={styles.touchable}
                     >
                         <Card style={[styles.card, a.read ? styles.readCard : null]}>
@@ -85,7 +155,7 @@ export default function BeneficiaryAlerts() {
                                     </Text>
 
                                     <View style={styles.info}>
-                                        <Text style={styles.alertTitle}>{a.title}</Text>
+                                        <Text style={[styles.alertTitle, a.read ? { color: '#A0AEC0' } : null]}>{a.title}</Text>
                                         {a.shortText ? <Text style={styles.subtitle}>{a.shortText}</Text> : null}
                                     </View>
                                 </View>
