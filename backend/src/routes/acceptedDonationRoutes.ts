@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 import { sendSuccess, sendError } from '../utils/responseUtils.js';
 import { NotificationModel } from '../models/Notification.js';
 import { BeneficiaryModel } from '../models/Beneficiary.js';
+import { BeneficiaryNotificationModel } from '../models/BeneficiaryNotification.js';
 
 const router = express.Router();
 
@@ -128,29 +129,18 @@ router.post('/from-interest', authenticateNGO, async (req, res) => {
     });
 
     // Create notification for beneficiaries
-    const notification = new NotificationModel({
-      recipientType: 'beneficiary',
+    const beneficiaryNotification = new BeneficiaryNotificationModel({
+      ngoId: req.ngo._id,
+      donationId: new mongoose.Types.ObjectId(donationId),
       title: 'New Food Distribution Available',
-      body: `${req.ngo.name} has new food available for distribution`,
-      shortText: 'New food distribution point available',
-      type: 'donation_available',
-      contextType: 'donation',
-      contextId: acceptedDonation._id,
-      data: {
-        donationId: acceptedDonation.donationId,
-        ngoId: acceptedDonation.ngoId,
-        location: {
-          coordinates: coordinates,
-          address: address
-        },
-        ngoName: req.ngo.name
-      }
+      body: `${req.ngo.name} has accepted a donation and will be distributing food soon`,
+      status: 'active'
     });
 
     // Save both records
     await Promise.all([
       acceptedDonation.save(),
-      notification.save()
+      beneficiaryNotification.save()
     ]);
 
     // Mark as notified
@@ -165,7 +155,7 @@ router.post('/from-interest', authenticateNGO, async (req, res) => {
       .populate('donationId', 'title foodDetails pickupSchedule')
       .populate('donorId', 'name businessName');
 
-    sendSuccess(res, populated, 'Accepted donation record created');
+    sendSuccess(res, populated, 'Accepted donation record and notification created');
 
   } catch (error: any) {
     console.error('Error creating accepted donation record:', error);
