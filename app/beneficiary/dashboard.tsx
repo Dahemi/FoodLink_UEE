@@ -21,12 +21,16 @@ const { width } = Dimensions.get('window');
 interface FoodPoint {
   id: string;
   name: string;
-  distance?: number; // computed
+  distance?: number;
   distanceLabel?: string;
   status?: 'Open Now' | 'Closed' | 'Next Pickup';
   nextPickup?: string | null;
   coordinates?: { latitude: number; longitude: number } | null;
   address?: string;
+  operatingHours?: {
+    start: string;
+    end: string;
+  };
 }
 
 const EXAMPLE_FOOD_POINTS: FoodPoint[] = [
@@ -190,6 +194,23 @@ export default function BeneficiaryDashboard() {
         }
       }
 
+      const isOpenNow = (operatingHours?: { start: string; end: string }) => {
+        if (!operatingHours?.start || !operatingHours?.end) {
+          return true; // Default to open if no hours specified
+        }
+
+        const now = new Date();
+        const currentTime = now.getHours() * 100 + now.getMinutes();
+        
+        const [startHours, startMinutes] = operatingHours.start.split(':').map(Number);
+        const [endHours, endMinutes] = operatingHours.end.split(':').map(Number);
+        
+        const startTime = startHours * 100 + (startMinutes || 0);
+        const endTime = endHours * 100 + (endMinutes || 0);
+        
+        return currentTime >= startTime && currentTime <= endTime;
+      };
+
       const enriched = (data || []).map((p: any) => {
         let coords: { latitude: number; longitude: number } | null = null;
         if (p.coordinates && typeof p.coordinates === 'object') {
@@ -210,7 +231,15 @@ export default function BeneficiaryDashboard() {
           coordinates: coords,
           address: p.address?.street || p.address || p.location?.address || '',
           nextPickup: p.nextPickup || null,
-          status: p.isOpen ? 'Open Now' : p.nextPickup ? 'Next Pickup' : 'Closed',
+          operatingHours: {
+            start: p.operatingHours?.start || '09:00',
+            end: p.operatingHours?.end || '17:00'
+          },
+          // Determine status based on operating hours
+          status: isOpenNow({
+            start: p.operatingHours?.start || '09:00',
+            end: p.operatingHours?.end || '17:00'
+          }) ? 'Open Now' : 'Closed',
         };
 
         if (fp.coordinates) {
