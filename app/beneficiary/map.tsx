@@ -27,7 +27,7 @@ interface NGOItem {
 }
 
 export default function FoodFinderMap() {
-  const { authState } = useBeneficiaryAuth();
+  const { authState } = useBeneficiaryAuth(); // Make sure you're using the beneficiary auth context
   const router = useRouter();
   const mapRef = useRef<MapView | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
@@ -264,6 +264,18 @@ export default function FoodFinderMap() {
   // resolveToken() already exists in this file — reuse it
   const submitFeedback = async () => {
     if (!selectedNgo) return Alert.alert('No NGO selected');
+    
+    // Debug log to check auth state
+    console.log('Auth state when submitting feedback:', {
+      isAuthenticated: authState.isAuthenticated,
+      userId: authState.user?._id,
+      user: authState.user
+    });
+
+    if (!authState.isAuthenticated || !authState.user?._id) {
+      return Alert.alert('Authentication Required', 'Please log in to submit feedback.');
+    }
+    
     try {
       setSubmittingFeedback(true);
 
@@ -271,20 +283,19 @@ export default function FoodFinderMap() {
         ngoId: selectedNgo.id,
         rating: feedbackRating,
         comment: feedbackComment,
-        beneficiaryId: authState.user?.id,
+        beneficiaryId: authState.user._id, // Use _id instead of id
         anonymous: false
       });
 
       // Refresh feedbacks after submission
       await fetchFeedbacks(selectedNgo.id);
-
       Alert.alert('Thank you', 'Your feedback has been submitted.');
       setFeedbackModalVisible(false);
       setFeedbackRating(5);
       setFeedbackComment('');
     } catch (err) {
       console.error('Feedback submit failed:', err);
-      Alert.alert('Error', err.message || 'Failed to submit feedback');
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to submit feedback');
     } finally {
       setSubmittingFeedback(false);
     }
@@ -464,12 +475,22 @@ export default function FoodFinderMap() {
                         <View style={styles.feedbackUser}>
                           <Avatar.Text 
                             size={32} 
-                            label={feedback.anonymous ? "A" : (feedback.beneficiaryId?.name?.[0] || "U")}
+                            label={
+                              feedback.anonymous 
+                                ? "A" 
+                                : ((feedback.beneficiaryId && typeof feedback.beneficiaryId === 'object' && feedback.beneficiaryId.name) 
+                                    ? feedback.beneficiaryId.name.charAt(0)
+                                    : "U")
+                            }
                             style={styles.feedbackAvatar} 
                           />
                           <View>
                             <Text style={styles.feedbackName}>
-                              {feedback.anonymous ? "Anonymous" : (feedback.beneficiaryId?.name || "User")}
+                              {feedback.anonymous 
+                                ? "Anonymous" 
+                                : ((feedback.beneficiaryId && typeof feedback.beneficiaryId === 'object' && feedback.beneficiaryId.name) 
+                                    ? feedback.beneficiaryId.name 
+                                    : "User")}
                             </Text>
                             <Text style={styles.feedbackDate}>
                               {new Date(feedback.createdAt).toLocaleDateString()}

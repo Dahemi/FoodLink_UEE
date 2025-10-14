@@ -15,28 +15,33 @@ const router = Router();
  */
 router.post('/', async (req, res, next) => {
   try {
-    console.log('Creating feedback with data:', req.body);
+    const { ngoId, rating, comment, beneficiaryId, anonymous = false } = req.body;
     
+    if (!ngoId || !rating) {
+      return res.status(400).json({ error: 'ngoId and rating required' });
+    }
+
+    if (!beneficiaryId && !anonymous) {
+      return res.status(400).json({ error: 'beneficiaryId required for non-anonymous feedback' });
+    }
+
     const feedback = new BeneficiaryFeedbackModel({
-      ngoId: req.body.ngoId,
-      beneficiaryId: req.body.beneficiaryId,
-      rating: req.body.rating,
-      comment: req.body.comment,
-      anonymous: req.body.anonymous || false
+      ngoId,
+      beneficiaryId, // Store the beneficiary ID
+      rating,
+      comment,
+      anonymous
     });
 
-    console.log('Created feedback model:', feedback);
+    await feedback.save();
     
-    const savedFeedback = await feedback.save();
-    console.log('Saved feedback:', savedFeedback);
+    // Populate beneficiary data before sending response
+    const populatedFeedback = await BeneficiaryFeedbackModel
+      .findById(feedback._id)
+      .populate('beneficiaryId', 'name email');
 
-    // Verify it exists in DB
-    const verifyFeedback = await BeneficiaryFeedbackModel.findById(savedFeedback._id);
-    console.log('Verified feedback in DB:', verifyFeedback);
-    
-    sendCreated(res, savedFeedback, 'Feedback submitted');
+    sendCreated(res, populatedFeedback, 'Feedback submitted');
   } catch (err) {
-    console.error('Error saving feedback:', err);
     next(err);
   }
 });
@@ -47,9 +52,11 @@ router.post('/', async (req, res, next) => {
  */
 router.get('/ngo/:id', async (req, res, next) => {
   try {
-    const feedbacks = await BeneficiaryFeedbackModel.find({ ngoId: req.params.id })
-      .populate('beneficiaryId', 'name')
+    const feedbacks = await BeneficiaryFeedbackModel
+      .find({ ngoId: req.params.id })
+      .populate('beneficiaryId', 'name email') // Always populate beneficiary data
       .sort('-createdAt');
+    
     sendSuccess(res, feedbacks);
   } catch (err) {
     next(err);

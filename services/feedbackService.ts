@@ -56,6 +56,8 @@ export const FeedbackService = {
       throw new Error(text || `Failed to get feedbacks (${res.status})`);
     }
 
-    return res.json();
+    const data = await res.json();
+    console.log('Fetched feedback data:', data); // Add this log
+    return data;
   },
 };
