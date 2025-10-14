@@ -58,7 +58,7 @@ export default function FoodFinderMap() {
   const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
 
   // Read incoming query params when navigating from Home -> Map
-  const params = useLocalSearchParams<{ lat?: string; lng?: string; id?: string; ts?: string }>();
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; id?: string; ts?: string; name?: string; address?: string }>();
   const lastPanRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -656,5 +656,11 @@ const styles = StyleSheet.create({
   feedbackDate: {
     fontSize: 12,
     color: '#A0AEC0',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#718096',
+    textAlign: 'center',
+    marginVertical: 12,
   },
 });
