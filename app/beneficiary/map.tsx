@@ -12,6 +12,8 @@ import { FoodPointReminderService } from '../../services/foodPointReminderServic
 import { DirectionsApi } from '../../services/directionsApi';
 import { LocationService } from '../../services/LocationService';
 import { FeedbackService } from '../../services/feedbackService';
+import { Avatar } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface NGOItem {
   id: string;
@@ -50,6 +52,10 @@ export default function FoodFinderMap() {
   const [feedbackRating, setFeedbackRating] = useState<number>(5);
   const [feedbackComment, setFeedbackComment] = useState<string>('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // New state variables for feedbacks
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
 
   // Read incoming query params when navigating from Home -> Map
   const params = useLocalSearchParams<{ lat?: string; lng?: string; id?: string; ts?: string }>();
@@ -250,6 +256,9 @@ export default function FoodFinderMap() {
   const handleSeeDetails = (ngo: NGOItem) => {
     setSelectedNgo(ngo);
     setFullDetailsVisible(true);
+    if (ngo.id) {
+      fetchFeedbacks(ngo.id);
+    }
   };
 
   // resolveToken() already exists in this file — reuse it
@@ -275,6 +284,19 @@ export default function FoodFinderMap() {
       Alert.alert('Error', err.message || 'Failed to submit feedback');
     } finally {
       setSubmittingFeedback(false);
+    }
+  };
+
+  // New function to fetch feedbacks for a specific NGO
+  const fetchFeedbacks = async (ngoId: string) => {
+    try {
+      setLoadingFeedbacks(true);
+      const data = await FeedbackService.getFeedbacksForNgo(ngoId);
+      setFeedbacks(data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch feedbacks:', err);
+    } finally {
+      setLoadingFeedbacks(false);
     }
   };
 
@@ -417,6 +439,62 @@ export default function FoodFinderMap() {
               Set Reminder
             </Button>
 
+            {/* New: Feedbacks section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Feedback & Reviews</Text>
+              
+              {loadingFeedbacks ? (
+                <LoadingSpinner size="small" />
+              ) : feedbacks.length === 0 ? (
+                <Text style={styles.emptyText}>No feedbacks yet</Text>
+              ) : (
+                feedbacks.map((feedback, index) => (
+                  <Card key={index} style={styles.feedbackCard}>
+                    <Card.Content>
+                      <View style={styles.feedbackHeader}>
+                        <View style={styles.feedbackUser}>
+                          <Avatar.Text 
+                            size={32} 
+                            label={feedback.anonymous ? "A" : (feedback.beneficiaryId?.name?.[0] || "U")}
+                            style={styles.feedbackAvatar} 
+                          />
+                          <View>
+                            <Text style={styles.feedbackName}>
+                              {feedback.anonymous ? "Anonymous" : (feedback.beneficiaryId?.name || "User")}
+                            </Text>
+                            <Text style={styles.feedbackDate}>
+                              {new Date(feedback.createdAt).toLocaleDateString()}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.ratingContainer}>
+                          {Array(5).fill(0).map((_, i) => (
+                            <MaterialCommunityIcons 
+                              key={i}
+                              name={i < feedback.rating ? "star" : "star-outline"}
+                              size={16}
+                              color={i < feedback.rating ? "#FFC107" : "#CBD5E0"}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      {feedback.comment && (
+                        <Text style={styles.feedbackComment}>{feedback.comment}</Text>
+                      )}
+                    </Card.Content>
+                  </Card>
+                ))
+              )}
+
+              <Button
+                mode="contained"
+                onPress={() => setFeedbackModalVisible(true)}
+                style={[styles.actionBtn, { marginTop: 16 }]}
+              >
+                Give Feedback
+              </Button>
+            </View>
+
             <Button mode="text" onPress={() => setFullDetailsVisible(false)} style={{ marginTop: 12 }}>
               Close
             </Button>
@@ -526,5 +604,57 @@ const styles = StyleSheet.create({
     color: '#2D3748',
     fontWeight: '700',
     fontSize: 16,
+  },
+
+  // New styles for feedback section in modal
+  feedbackSection: {
+    width: '100%',
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 12,
+  },
+  feedbackItem: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F7FAFC',
+    marginBottom: 12,
+  },
+  feedbackRating: {
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  feedbackComment: {
+    color: '#4A5568',
+  },
+
+  // Additional styles for feedback & reviews section
+  feedbackCard: {
+    marginBottom: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    elevation: 2,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  feedbackUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  feedbackAvatar: {
+    backgroundColor: '#FF8A50',
+    marginRight: 8,
+  },
+  feedbackName: {
+    fontWeight: '600',
+    color: '#2D3748',
+  },
+  feedbackDate: {
+    fontSize: 12,
+    color: '#A0AEC0',
   },
 });
