@@ -126,12 +126,11 @@ export default function RoleSelectionScreen() {
           ]}
         >
           <View style={styles.logoContainer}>
-            {/* TODO: Replace with vector logo component */}
-            <View style={styles.logoPlaceholder}>
-              <View style={styles.logoCircle1} />
-              <View style={styles.logoCircle2} />
-              <Text style={styles.logoText}>FoodLink</Text>
-            </View>
+            <Image
+              source={require('../assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
         </Animated.View>
 
@@ -239,27 +238,28 @@ export default function RoleSelectionScreen() {
             styles.bottomSection,
             {
               opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
+              transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
             },
           ]}
         >
-          <View style={styles.illustrationContainer}>
-            <Image
-              source={{
-                uri: 'https://img.freepik.com/premium-vector/hungry-woman-thinking-about-food-illustration_598748-255.jpg',
-              }}
-              style={styles.illustrationPlaceholder}
-              resizeMode="contain"
-            />
+          <View style={styles.needFoodTitleContainer}>
+            <Text style={styles.needFoodTitle}>I need some food</Text>
+            <Text style={styles.needFoodDescription}>Find food distributions near you</Text>
           </View>
-
+          <Image
+            source={{
+              uri: 'https://img.freepik.com/premium-vector/hungry-woman-thinking-about-food-illustration_598748-255.jpg',
+            }}
+            style={styles.foodImage}
+            resizeMode="contain"
+          />
           <TouchableOpacity
             style={styles.needFoodButton}
             onPress={handleNeedFood}
-            activeOpacity={0.9}
           >
             <Text style={styles.needFoodText}>I need some food</Text>
           </TouchableOpacity>
+          
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
@@ -284,40 +284,11 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
+    marginBottom: 5,
   },
-  logoPlaceholder: {
-    width: 80,
-    height: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  logoCircle1: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFB380',
-    top: 10,
-    left: 15,
-    transform: [{ rotate: '-15deg' }],
-  },
-  logoCircle2: {
-    position: 'absolute',
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    backgroundColor: '#FF8A50',
-    top: 15,
-    right: 10,
-    transform: [{ rotate: '20deg' }],
-  },
-  logoText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginTop: 50,
-    letterSpacing: 0.5,
+  logo: {
+    width: 140,
+    height: 140,
   },
   mainContent: {
     paddingHorizontal: 24,
@@ -626,5 +597,27 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginHorizontal: 20,
     letterSpacing: 1,
+  },
+  needFoodTitleContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  needFoodTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
+  },
+  needFoodDescription: {
+    fontSize: 14,
+    color: '#595f68ff',
+    textAlign: 'center',
+  },
+  foodImage: {
+    width: width * 0.8,
+    height: 240,
+    marginTop: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
   },
 });
