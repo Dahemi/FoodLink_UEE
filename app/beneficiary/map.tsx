@@ -271,16 +271,19 @@ export default function FoodFinderMap() {
         ngoId: selectedNgo.id,
         rating: feedbackRating,
         comment: feedbackComment,
-        beneficiaryId: authState.user?.id, // Optional, from auth context
+        beneficiaryId: authState.user?.id,
         anonymous: false
       });
+
+      // Refresh feedbacks after submission
+      await fetchFeedbacks(selectedNgo.id);
 
       Alert.alert('Thank you', 'Your feedback has been submitted.');
       setFeedbackModalVisible(false);
       setFeedbackRating(5);
       setFeedbackComment('');
-    } catch (err: any) {
-      console.error('Feedback submit failed', err);
+    } catch (err) {
+      console.error('Feedback submit failed:', err);
       Alert.alert('Error', err.message || 'Failed to submit feedback');
     } finally {
       setSubmittingFeedback(false);
@@ -291,10 +294,16 @@ export default function FoodFinderMap() {
   const fetchFeedbacks = async (ngoId: string) => {
     try {
       setLoadingFeedbacks(true);
-      const data = await FeedbackService.getFeedbacksForNgo(ngoId);
-      setFeedbacks(data.data || []);
+      const response = await FeedbackService.getFeedbacksForNgo(ngoId);
+      console.log('Fetched feedbacks:', response);
+      
+      // Ensure we're setting the correct data structure
+      const feedbackData = response.data || response;
+      setFeedbacks(Array.isArray(feedbackData) ? feedbackData : []);
+      
     } catch (err) {
       console.error('Failed to fetch feedbacks:', err);
+      Alert.alert('Error', 'Could not load feedback');
     } finally {
       setLoadingFeedbacks(false);
     }
@@ -449,7 +458,7 @@ export default function FoodFinderMap() {
                 <Text style={styles.emptyText}>No feedbacks yet</Text>
               ) : (
                 feedbacks.map((feedback, index) => (
-                  <Card key={index} style={styles.feedbackCard}>
+                  <Card key={feedback._id || index} style={styles.feedbackCard}>
                     <Card.Content>
                       <View style={styles.feedbackHeader}>
                         <View style={styles.feedbackUser}>
@@ -478,9 +487,9 @@ export default function FoodFinderMap() {
                           ))}
                         </View>
                       </View>
-                      {feedback.comment && (
+                      {feedback.comment ? (
                         <Text style={styles.feedbackComment}>{feedback.comment}</Text>
-                      )}
+                      ) : null}
                     </Card.Content>
                   </Card>
                 ))

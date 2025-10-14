@@ -1,6 +1,4 @@
 import { fetch } from 'node-fetch';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { httpRequest } from './http';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -26,6 +24,8 @@ export const FeedbackService = {
   async submitFeedback(
     payload: { ngoId: string; rating: number; comment?: string; anonymous?: boolean; beneficiaryId?: string }
   ) {
+    console.log('API_URL:', API_URL);
+    console.log('Submitting feedback:', payload);
     const fetchFn = await getFetch();
     const res = await fetchFn(`${API_URL}/api/beneficiary-feedback`, {
       method: 'POST',

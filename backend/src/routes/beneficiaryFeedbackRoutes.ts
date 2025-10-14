@@ -15,20 +15,28 @@ const router = Router();
  */
 router.post('/', async (req, res, next) => {
   try {
-    const { ngoId, rating, comment, beneficiaryId, anonymous = false } = req.body;
-    if (!ngoId || !rating) return res.status(400).json({ error: 'ngoId and rating required' });
-
+    console.log('Creating feedback with data:', req.body);
+    
     const feedback = new BeneficiaryFeedbackModel({
-      ngoId,
-      beneficiaryId,
-      rating,
-      comment,
-      anonymous
+      ngoId: req.body.ngoId,
+      beneficiaryId: req.body.beneficiaryId,
+      rating: req.body.rating,
+      comment: req.body.comment,
+      anonymous: req.body.anonymous || false
     });
 
-    await feedback.save();
-    sendCreated(res, feedback, 'Feedback submitted');
+    console.log('Created feedback model:', feedback);
+    
+    const savedFeedback = await feedback.save();
+    console.log('Saved feedback:', savedFeedback);
+
+    // Verify it exists in DB
+    const verifyFeedback = await BeneficiaryFeedbackModel.findById(savedFeedback._id);
+    console.log('Verified feedback in DB:', verifyFeedback);
+    
+    sendCreated(res, savedFeedback, 'Feedback submitted');
   } catch (err) {
+    console.error('Error saving feedback:', err);
     next(err);
   }
 });
@@ -46,6 +54,16 @@ router.get('/ngo/:id', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// Middleware to log feedback requests
+router.use((req, res, next) => {
+  console.log('Feedback request:', {
+    method: req.method,
+    path: req.path,
+    body: req.body
+  });
+  next();
 });
 
 export default router;
