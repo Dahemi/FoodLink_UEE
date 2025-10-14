@@ -176,27 +176,25 @@ export default function BeneficiaryProfile() {
       name: editForm.name.trim(),
       phone: editForm.phone.trim(),
       address: {
-       street: editForm.address.street,
-        city: editForm.address.city,
-        state: editForm.address.state,
-        zipCode: editForm.address.zipCode,
-        country: editForm.address.country,
-      },
+        street: editForm.address.street.trim(),
+        city: editForm.address.city.trim(),
+        state: editForm.address.state.trim(),
+        zipCode: editForm.address.zipCode.trim(),
+        country: editForm.address.country.trim(),
+        coordinates: authState.user?.address?.coordinates || {
+          latitude: 6.9271,
+          longitude: 79.8612
+        }
+      }
     };
 
     try {
       setEditLoading(true);
-      if (typeof updateProfile === 'function') {
-        await updateProfile(payload);
-        Alert.alert('Success', 'Profile updated successfully!');
-      } else {
-        // Fallback: if no updateProfile provided, show a friendly message
-        console.warn('updateProfile not available on useBeneficiaryAuth');
-        Alert.alert('Info', 'Update function not available in this build.');
-      }
+      await updateProfile(payload);
       setShowEditModal(false);
-   } catch (err: any) {
-      console.error('Failed to update profile', err);
+      Alert.alert('Success', 'Profile updated successfully!');
+    } catch (err: any) {
+      console.error('Failed to update profile:', err);
       Alert.alert('Error', err?.message || 'Failed to update profile. Please try again.');
     } finally {
       setEditLoading(false);
