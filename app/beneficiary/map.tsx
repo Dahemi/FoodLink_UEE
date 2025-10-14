@@ -4,13 +4,14 @@ import MapView, { Marker, MapViewProps, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Button, Chip, Card } from 'react-native-paper';
-import { useAuth } from '../../context/AuthContext';
+import { Button, Chip, Card, TextInput } from 'react-native-paper';
+import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { NavigationService } from '../../services/navigationService';
 import { FoodPointReminderService } from '../../services/foodPointReminderService';
 import { DirectionsApi } from '../../services/directionsApi';
 import { LocationService } from '../../services/LocationService';
+import { FeedbackService } from '../../services/feedbackService';
 
 interface NGOItem {
   id: string;
@@ -24,7 +25,7 @@ interface NGOItem {
 }
 
 export default function FoodFinderMap() {
-  const { authState } = useAuth();
+  const { authState } = useBeneficiaryAuth();
   const router = useRouter();
   const mapRef = useRef<MapView | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
@@ -43,6 +44,12 @@ export default function FoodFinderMap() {
 
   // New: full/detail view visible state (replaces separate route)
   const [fullDetailsVisible, setFullDetailsVisible] = useState(false);
+
+  // Feedback modal state
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState<number>(5);
+  const [feedbackComment, setFeedbackComment] = useState<string>('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   // Read incoming query params when navigating from Home -> Map
   const params = useLocalSearchParams<{ lat?: string; lng?: string; id?: string; ts?: string }>();
@@ -245,6 +252,32 @@ export default function FoodFinderMap() {
     setFullDetailsVisible(true);
   };
 
+  // resolveToken() already exists in this file — reuse it
+  const submitFeedback = async () => {
+    if (!selectedNgo) return Alert.alert('No NGO selected');
+    try {
+      setSubmittingFeedback(true);
+
+      await FeedbackService.submitFeedback({
+        ngoId: selectedNgo.id,
+        rating: feedbackRating,
+        comment: feedbackComment,
+        beneficiaryId: authState.user?.id, // Optional, from auth context
+        anonymous: false
+      });
+
+      Alert.alert('Thank you', 'Your feedback has been submitted.');
+      setFeedbackModalVisible(false);
+      setFeedbackRating(5);
+      setFeedbackComment('');
+    } catch (err: any) {
+      console.error('Feedback submit failed', err);
+      Alert.alert('Error', err.message || 'Failed to submit feedback');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
   if (loadingLocation || loadingNgos) return <LoadingSpinner message="Loading map..." />;
 
   return (
@@ -312,6 +345,17 @@ export default function FoodFinderMap() {
               <Chip compact style={styles.openChip}>{selectedNgo.isVerified ? 'Verified' : 'NGO'}</Chip>
               <Button mode="contained" onPress={() => handleDirections(selectedNgo)} style={styles.dirBtn} compact>Directions</Button>
               <Button mode="outlined" onPress={() => handleSeeDetails(selectedNgo)} compact>See Details</Button>
+
+              {/* Set Reminder button is already here in your file */}
+              {/* Add Give Feedback immediately after */}
+              <Button
+                mode="contained"
+                onPress={() => setFeedbackModalVisible(true)}
+                style={[styles.actionBtn, { marginTop: 8 }]}
+                compact
+              >
+                Give Feedback
+              </Button>
             </View>
           </View>
         </Card>
@@ -381,6 +425,46 @@ export default function FoodFinderMap() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Feedback modal */}
+      <Modal visible={feedbackModalVisible} animationType="slide" onRequestClose={() => setFeedbackModalVisible(false)}>
+        <SafeAreaView style={styles.modalContainer}>
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <View style={styles.handle} />
+            <Text style={styles.modalTitle}>Give Feedback</Text>
+            <Text style={styles.modalSubtitle}>{selectedNgo?.name}</Text>
+
+            <View style={{ marginTop: 12, width: '100%' }}>
+              <Text style={{ marginBottom: 6, fontWeight: '600' }}>Rating (1-5)</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[1,2,3,4,5].map((n) => (
+                  <TouchableOpacity key={n} onPress={() => setFeedbackRating(n)} style={{ padding: 8, backgroundColor: feedbackRating === n ? '#FF8A50' : '#F0F4F8', borderRadius: 6 }}>
+                    <Text style={{ color: feedbackRating === n ? '#fff' : '#333' }}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TextInput
+                label="Comment (optional)"
+                value={feedbackComment}
+                onChangeText={setFeedbackComment}
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                style={{ marginTop: 12 }}
+              />
+
+              <Button mode="contained" loading={submittingFeedback} onPress={submitFeedback} style={{ marginTop: 12 }}>
+                Submit Feedback
+              </Button>
+
+              <Button mode="text" onPress={() => setFeedbackModalVisible(false)} style={{ marginTop: 8 }}>
+                Cancel
+              </Button>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
@@ -422,4 +506,25 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#2D3748', marginBottom: 6 },
   sectionText: { fontSize: 14, color: '#4A5568' },
   actionBtn: { width: '100%', marginTop: 12, backgroundColor: '#FF8A50' },
+
+  // Feedback modal specific styles
+  ratingContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 12 },
+  ratingButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF8A50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+  },
+  ratingButtonSelected: {
+    backgroundColor: '#FF8A50',
+  },
+  ratingText: {
+    color: '#2D3748',
+    fontWeight: '700',
+    fontSize: 16,
+  },
 });

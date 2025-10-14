@@ -10,6 +10,7 @@ import donationRoutes from './donationRoutes.js';
 import ngoRequirementRoutes from './ngoRequirementRoutes.js';
 import fileUploadRoutes from './fileUploadRoutes.js';
 import ngoRoutes from './ngoRoutes.js';
+import beneficiaryFeedbackRoutes from './beneficiaryFeedbackRoutes.js';
 
 const router = Router();
 
@@ -41,6 +42,9 @@ router.use('/upload', fileUploadRoutes);
 
 // Register NGOs endpoints
 router.use('/ngos', ngoRoutes);
+
+// Register beneficiary feedback route
+router.use('/beneficiary-feedback', beneficiaryFeedbackRoutes);
 
 // API info endpoint
 router.get('/info', (_req, res) => {
