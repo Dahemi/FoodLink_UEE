@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    Dimensions,
-    Alert,
+    View, Text, ScrollView, RefreshControl, 
+    StyleSheet, TouchableOpacity, Dimensions, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Chip, IconButton, Button } from 'react-native-paper';
+import { Card, Chip, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { NotificationApi, ServerNotification } from '../../services/notificationApi';
+import { NotificationApi } from '../../services/notificationApi';
 import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 
@@ -24,13 +18,11 @@ interface AlertItem {
     shortText?: string;
     time: string;
     type: string;
-    read?: boolean;
-    raw?: ServerNotification; // Store original notification data
+    raw?: any;
 }
 
 export default function BeneficiaryAlerts() {
     const router = useRouter();
-    const { authState } = useBeneficiaryAuth();
     const [alerts, setAlerts] = useState<AlertItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -39,41 +31,34 @@ export default function BeneficiaryAlerts() {
     const loadAlerts = async () => {
         try {
             setLoading(true);
-            if (!authState.user?.id) {
-                console.warn('No user ID available');
-                return;
-            }
+            const notifications = await NotificationApi.getAllBeneficiaryNotifications();
+            console.log('Received notifications:', notifications); // Debug log
 
-            const serverNotifications = await NotificationApi.getNotifications(
-                authState.user.id,
-                'beneficiary'
-            );
-
-            // Transform server notifications to AlertItem format
-            const transformed: AlertItem[] = serverNotifications
-                .filter(n => n.recipientType === 'beneficiary') // Show all beneficiary notifications
-                .map(notification => ({
-                    id: notification.notificationId || notification._id || String(Math.random()),
-                    title: notification.title,
-                    shortText: notification.shortText || notification.body,
-                    time: formatTime(notification.createdAt || new Date()),
-                    type: notification.type || 'general',
-                    read: notification.isRead,
-                    raw: notification
-                }));
+            // Transform notifications to AlertItem format
+            const transformed: AlertItem[] = notifications.map(notification => ({
+                id: notification._id || String(Math.random()),
+                title: notification.title,
+                shortText: notification.body,
+                time: formatTime(notification.createdAt || new Date()),
+                type: 'distribution', // Default type for food distribution notifications
+                raw: notification
+            }));
 
             setAlerts(transformed);
         } catch (err) {
             console.error('Failed to load notifications:', err);
-            Alert.alert('Error', 'Failed to load notifications. Please try again.');
+            // Set empty array to avoid showing stale data
+            setAlerts([]);
+            Alert.alert('Error', 'Unable to load notifications. Please try again later.');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
     useEffect(() => {
         loadAlerts();
-    }, [authState.user?.id]);
+    }, []);
 
     const formatTime = (date: string | Date) => {
         const now = new Date();
@@ -97,13 +82,6 @@ export default function BeneficiaryAlerts() {
 
     const openAlert = async (item: AlertItem) => {
         try {
-            if (!item.read && item.raw?.notificationId) {
-                await NotificationApi.markAsRead(item.raw.notificationId);
-                setAlerts(prev => 
-                    prev.map(a => a.id === item.id ? { ...a, read: true } : a)
-                );
-            }
-
             // Handle donation notifications by navigating to map
             if (item.raw?.type === 'donation_available' && item.raw.data?.location) {
                 const { location } = item.raw.data;
@@ -113,22 +91,6 @@ export default function BeneficiaryAlerts() {
             }
         } catch (err) {
             console.error('Failed to handle notification:', err);
-        }
-    };
-
-    const markAllRead = async () => {
-        try {
-            const unreadIds = alerts
-                .filter(a => !a.read && a.raw?.notificationId)
-                .map(a => a.raw!.notificationId!);
-
-            if (unreadIds.length > 0) {
-                await NotificationApi.markMultipleAsRead(unreadIds, authState.user?.id);
-                setAlerts(prev => prev.map(a => ({ ...a, read: true })));
-            }
-        } catch (err) {
-            console.error('Failed to mark all as read:', err);
-            Alert.alert('Error', 'Failed to update notifications');
         }
     };
 
@@ -143,13 +105,8 @@ export default function BeneficiaryAlerts() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            if (authState.user?.id) {
-                                await NotificationApi.deleteAllForRecipient(
-                                    authState.user.id,
-                                    'beneficiary'
-                                );
-                                setAlerts([]);
-                            }
+                            await NotificationApi.deleteAllForRecipient('beneficiary');
+                            setAlerts([]);
                         } catch (err) {
                             console.error('Failed to clear notifications:', err);
                             Alert.alert('Error', 'Failed to clear notifications');
@@ -169,14 +126,6 @@ export default function BeneficiaryAlerts() {
             <View style={styles.header}>
                 <Text style={styles.title}>Alerts</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Button 
-                        compact 
-                        mode="text" 
-                        onPress={markAllRead}
-                        labelStyle={{ color: '#FF8A50', fontWeight: '600' }}
-                    >
-                        Mark all read
-                    </Button>
                     <IconButton
                         icon="trash-can-outline"
                         size={22}
@@ -203,7 +152,7 @@ export default function BeneficiaryAlerts() {
                         onPress={() => openAlert(alert)}
                         style={styles.touchable}
                     >
-                        <Card style={[styles.card, alert.read && styles.readCard]}>
+                        <Card style={[styles.card]}>
                             <View style={styles.cardContent}>
                                 <View style={styles.left}>
                                     <Text style={styles.emoji}>
@@ -212,7 +161,6 @@ export default function BeneficiaryAlerts() {
                                     <View style={styles.info}>
                                         <Text style={[
                                             styles.alertTitle,
-                                            alert.read && { color: '#A0AEC0' }
                                         ]}>
                                             {alert.title}
                                         </Text>
@@ -298,10 +246,6 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         backgroundColor: '#FFF8F0',
         elevation: 2,
-    },
-
-    readCard: {
-        backgroundColor: '#F7FAFC',
     },
 
     cardContent: {

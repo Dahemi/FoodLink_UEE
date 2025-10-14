@@ -96,5 +96,9 @@ export const NotificationApi = {
     query.set('recipientType', 'beneficiary');
     query.set('type', 'donation_available');
     return httpWithAuth<ServerNotification[]>(`/api/notifications?${query.toString()}`);
+  },
+
+  async getAllBeneficiaryNotifications(): Promise<ServerNotification[]> {
+    return httpWithAuth<ServerNotification[]>('/api/beneficiary-notifications/all');
   }
 };
