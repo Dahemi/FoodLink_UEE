@@ -13,14 +13,31 @@ import { useRouter } from 'expo-router';
 import { useNGOAuth } from '../../context/NGOAuthContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { NGOHistoryApi } from '../../services/ngoHistoryApi';
 
 const { width } = Dimensions.get('window');
+
+interface ProfileStats {
+  totalClaims: number;
+  approvedClaims: number;
+  completedClaims: number;
+  totalServings: number;
+  totalBeneficiaries: number;
+}
 
 export default function NGOProfile() {
   const router = useRouter();
   const { authState, updateProfile, logout } = useNGOAuth();
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [stats, setStats] = useState<ProfileStats>({
+    totalClaims: 0,
+    approvedClaims: 0,
+    completedClaims: 0,
+    totalServings: 0,
+    totalBeneficiaries: 0,
+  });
   
   const [formData, setFormData] = useState({
     name: authState.user?.name || '',
@@ -51,6 +68,51 @@ export default function NGOProfile() {
     emailNotifications: true,
     urgentAlerts: true,
   });
+
+  // Fetch real statistics from backend
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setStatsLoading(true);
+      
+      if (!NGOHistoryApi.isEnabled()) {
+        console.warn('NGO History API not enabled');
+        setStatsLoading(false);
+        return;
+      }
+
+      console.log('Fetching NGO statistics...');
+      const response = await NGOHistoryApi.getStats();
+      
+      console.log('Stats API response:', response);
+      
+      if (response.success && response.data) {
+        setStats({
+          totalClaims: response.data.totalClaims || 0,
+          approvedClaims: response.data.approvedClaims || 0,
+          completedClaims: response.data.completedClaims || 0,
+          totalServings: response.data.totalServings || 0,
+          totalBeneficiaries: response.data.totalBeneficiaries || 0,
+        });
+        console.log('Stats updated successfully:', response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      // Set default values on error
+      setStats({
+        totalClaims: 0,
+        approvedClaims: 0,
+        completedClaims: 0,
+        totalServings: 0,
+        totalBeneficiaries: 0,
+      });
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   // Update form data when authState changes
   useEffect(() => {
@@ -194,6 +256,93 @@ export default function NGOProfile() {
       </Card.Content>
     </Card>
   );
+
+  const renderStatsCard = () => {
+    if (statsLoading) {
+      return (
+        <Card style={styles.sectionCard}>
+          <Card.Content>
+            <View style={styles.loadingStatsContainer}>
+              <LoadingSpinner message="Loading statistics..." size="small" color="#FF8A50" />
+            </View>
+          </Card.Content>
+        </Card>
+      );
+    }
+
+    return (
+      <Card style={styles.sectionCard}>
+        <Card.Content>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Impact Statistics</Text>
+            <Button
+              mode="text"
+              onPress={fetchStats}
+              textColor="#FF8A50"
+              compact
+              icon="refresh"
+            >
+              Refresh
+            </Button>
+          </View>
+          
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <MaterialCommunityIcons name="food" size={28} color="#FF8A50" />
+              </View>
+              <Text style={styles.statNumber}>{stats.totalClaims}</Text>
+              <Text style={styles.statLabel}>Total Claims</Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <MaterialCommunityIcons name="account-group" size={28} color="#4CAF50" />
+              </View>
+              <Text style={styles.statNumber}>{stats.totalBeneficiaries.toLocaleString()}</Text>
+              <Text style={styles.statLabel}>People Helped</Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <MaterialCommunityIcons name="check-circle" size={28} color="#2196F3" />
+              </View>
+              <Text style={styles.statNumber}>{stats.completedClaims}</Text>
+              <Text style={styles.statLabel}>Completed</Text>
+            </View>
+
+            <View style={styles.statItem}>
+              <View style={styles.statIconContainer}>
+                <MaterialCommunityIcons name="silverware-fork-knife" size={28} color="#9C27B0" />
+              </View>
+              <Text style={styles.statNumber}>{stats.totalServings.toLocaleString()}</Text>
+              <Text style={styles.statLabel}>Total Servings</Text>
+            </View>
+          </View>
+
+          {stats.totalClaims > 0 && (
+            <>
+              <Divider style={styles.divider} />
+              <View style={styles.statsInsight}>
+                <MaterialCommunityIcons name="chart-line" size={20} color="#718096" />
+                <Text style={styles.insightText}>
+                  {Math.round((stats.completedClaims / stats.totalClaims) * 100)}% completion rate
+                </Text>
+              </View>
+            </>
+          )}
+
+          {stats.totalClaims === 0 && !statsLoading && (
+            <View style={styles.emptyStatsContainer}>
+              <MaterialCommunityIcons name="chart-box-outline" size={48} color="#CBD5E0" />
+              <Text style={styles.emptyStatsText}>No activity yet</Text>
+              <Text style={styles.emptyStatsSubtext}>Start claiming donations to see your impact</Text>
+            </View>
+          )}
+        </Card.Content>
+      </Card>
+    );
+  };
 
   const renderOrganizationInfo = () => (
     <Card style={styles.sectionCard}>
@@ -340,7 +489,7 @@ export default function NGOProfile() {
           value={formData.capacity.toString()}
           onChangeText={(text) => setFormData(prev => ({ 
             ...prev, 
-            capacity: parseInt(text) || 100 
+            capacity: parseInt(text) || 0 
           }))}
           mode="outlined"
           keyboardType="numeric"
@@ -429,7 +578,7 @@ export default function NGOProfile() {
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Email Notifications</Text>
-            <Text style={styles.settingDescription}>Receive notifications via email</Text>
+            <Text style={styles.settingDescription}>Receive updates via email</Text>
           </View>
           <Switch
             value={notifications.emailNotifications}
@@ -443,7 +592,7 @@ export default function NGOProfile() {
         <View style={styles.settingRow}>
           <View style={styles.settingInfo}>
             <Text style={styles.settingLabel}>Urgent Alerts</Text>
-            <Text style={styles.settingDescription}>Push notifications for urgent requests</Text>
+            <Text style={styles.settingDescription}>Immediate alerts for urgent food requirements</Text>
           </View>
           <Switch
             value={notifications.urgentAlerts}
@@ -455,42 +604,6 @@ export default function NGOProfile() {
     </Card>
   );
 
-  const renderStatsCard = () => {
-    const stats = {
-      totalRequirements: 45,
-      peopleHelped: 2340,
-      activeVolunteers: 18,
-      monthlyImpact: 1250,
-    };
-
-    return (
-      <Card style={styles.sectionCard}>
-        <Card.Content>
-          <Text style={styles.sectionTitle}>Impact Statistics</Text>
-          
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.totalRequirements}</Text>
-              <Text style={styles.statLabel}>Total Requirements</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.peopleHelped.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>People Helped</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.activeVolunteers}</Text>
-              <Text style={styles.statLabel}>Active Volunteers</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.monthlyImpact.toLocaleString()}</Text>
-              <Text style={styles.statLabel}>Monthly Meals</Text>
-            </View>
-          </View>
-        </Card.Content>
-      </Card>
-    );
-  };
-
   const renderActionButtons = () => (
     <Card style={styles.sectionCard}>
       <Card.Content>
@@ -498,11 +611,11 @@ export default function NGOProfile() {
         
         <Button
           mode="outlined"
-          icon="download"
-          onPress={() => Alert.alert('Info', 'Impact report download will be implemented soon')}
+          icon="history"
+          onPress={() => router.push('/NGO/history')}
           style={styles.actionButton}
         >
-          Download Impact Report
+          View Claim History
         </Button>
 
         <Button
@@ -526,7 +639,7 @@ export default function NGOProfile() {
         <Button
           mode="outlined"
           icon="help-circle"
-          onPress={() => Alert.alert('Info', 'Help & Support will be implemented soon')}
+          onPress={() => Alert.alert('/NGO/help-support')}
           style={styles.actionButton}
         >
           Help & Support
@@ -661,6 +774,12 @@ const styles = StyleSheet.create({
     color: '#2D3748',
     marginBottom: 16,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   subsectionTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -702,28 +821,79 @@ const styles = StyleSheet.create({
   divider: {
     marginVertical: 8,
   },
+  loadingStatsContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: 12,
   },
   statItem: {
-    width: (width - 80) / 2,
+    width:140,
+    height: 140,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 16,
     backgroundColor: '#F7FAFC',
-    borderRadius: 8,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  statIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   statNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FF8A50',
+    color: '#2D3748',
+    marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
     color: '#718096',
-    marginTop: 4,
+    textAlign: 'center',
+  },
+  statsInsight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 12,
+  },
+  insightText: {
+    fontSize: 14,
+    color: '#4A5568',
+    fontWeight: '500',
+  },
+  emptyStatsContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyStatsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4A5568',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  emptyStatsSubtext: {
+    fontSize: 14,
+    color: '#718096',
     textAlign: 'center',
   },
   actionButton: {

@@ -72,6 +72,7 @@ export default function DonationDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
   const [donation, setDonation] = useState<DonationDetails | null>(null);
+  const [imageIndex, setImageIndex] = useState(0);
 
   useEffect(() => {
     fetchDonationDetails();
@@ -169,6 +170,57 @@ export default function DonationDetailsScreen() {
     return null;
   };
 
+  const calculateHoursUntilExpiry = (expiryDateTime: string): number => {
+    const now = new Date();
+    const expiry = new Date(expiryDateTime);
+    const hours = Math.floor((expiry.getTime() - now.getTime()) / (1000 * 60 * 60));
+    return Math.max(0, hours);
+  };
+
+  const formatTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const hours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (hours < 1) return 'Just now';
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const getUrgencyColor = (urgency: string): string => {
+    switch (urgency.toLowerCase()) {
+      case 'urgent': return '#F44336';
+      case 'high': return '#FF9800';
+      case 'medium': return '#FFC107';
+      case 'low': return '#4CAF50';
+      default: return '#718096';
+    }
+  };
+
+  const getUrgencyIcon = (urgency: string) => {
+    switch (urgency.toLowerCase()) {
+      case 'urgent': return 'alert-circle' as const;
+      case 'high': return 'fire' as const;
+      case 'medium': return 'clock-fast' as const;
+      case 'low': return 'clock-outline' as const;
+      default: return 'information' as const;
+    }
+  };
+
+  const getFoodTypeIcon = (type: string) => {
+    const icons = {
+      cooked_meal: 'food' as const,
+      raw_ingredients: 'food-variant' as const,
+      packaged_food: 'package-variant' as const,
+      bakery: 'bread-slice' as const,
+      fruits_vegetables: 'food-apple' as const,
+      dairy: 'cow' as const,
+      beverages: 'cup' as const,
+    } as const;
+    return icons[type as keyof typeof icons] || 'food' as const;
+  };
+
   if (loading) {
     return (
       <LoadingSpinner
@@ -183,9 +235,10 @@ export default function DonationDetailsScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <MaterialCommunityIcons name="alert-circle" size={48} color="#F44336" />
-          <Text style={styles.errorText}>Donation not found</Text>
-          <Button mode="contained" onPress={() => router.back()}>
+          <MaterialCommunityIcons name="alert-circle" size={64} color="#F44336" />
+          <Text style={styles.errorTitle}>Donation Not Found</Text>
+          <Text style={styles.errorText}>This donation may have been removed or is no longer available.</Text>
+          <Button mode="contained" onPress={() => router.back()} style={styles.errorButton}>
             Go Back
           </Button>
         </View>
@@ -207,7 +260,7 @@ export default function DonationDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
+      {/* Enhanced Header with Status */}
       <View style={styles.header}>
         <Button
           icon="arrow-left"
@@ -215,176 +268,316 @@ export default function DonationDetailsScreen() {
           onPress={() => router.back()}
           textColor="#2D3748"
           compact
+          style={styles.backButton}
         >
-          
+          Back
         </Button>
-        <Text style={styles.headerTitle}>Donation Details</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Donation Details</Text>
+          
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Images Gallery */}
-        <View style={styles.imageContainer}>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false} 
-            contentContainerStyle={styles.imageScrollContent}
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Hero Image Gallery with Indicator */}
+        <View style={styles.heroSection}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(event) => {
+              const index = Math.round(event.nativeEvent.contentOffset.x / width);
+              setImageIndex(index);
+            }}
+            style={styles.imageGallery}
           >
             {donation.images && donation.images.length > 0 ? (
               donation.images.map((image, index) => {
                 const imageUrl = getImageUrl(image);
-                
-                if (!imageUrl) {
-                  return (
-                    <View key={`placeholder-${index}`} style={styles.imagePlaceholder}>
-                      <MaterialCommunityIcons name="food-apple" size={48} color="#CBD5E0" />
-                    </View>
-                  );
-                }
-
-                return (
+                return imageUrl ? (
                   <Image
-                    key={`image-${index}`}
+                    key={index}
                     source={{ uri: imageUrl }}
-                    style={styles.image}
+                    style={styles.heroImage}
                     resizeMode="cover"
-                    onError={(error) => {
-                      console.error('Image load error:', error.nativeEvent.error);
-                    }}
                   />
-                );
+                ) : null;
               })
             ) : (
-              // Placeholder images when no images available
-              Array(8).fill(0).map((_, index) => (
-                <View key={`empty-${index}`} style={styles.imagePlaceholder}>
-                  <MaterialCommunityIcons name="food-apple" size={48} color="#CBD5E0" />
-                </View>
-              ))
+              <View style={styles.placeholderHero}>
+                <MaterialCommunityIcons name="food-apple" size={80} color="#CBD5E0" />
+                <Text style={styles.placeholderText}>No image available</Text>
+              </View>
             )}
           </ScrollView>
+          
+          {/* Image Indicator */}
+          {donation.images && donation.images.length > 1 && (
+            <View style={styles.imageIndicator}>
+              {donation.images.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.indicatorDot,
+                    imageIndex === index && styles.indicatorDotActive
+                  ]}
+                />
+              ))}
+            </View>
+          )}
+
+          {/* Urgency Badge Overlay */}
+          <View style={[
+            styles.urgencyBadgeOverlay,
+            { backgroundColor: getUrgencyColor(donation.pickupSchedule.urgency) }
+          ]}>
+            <MaterialCommunityIcons 
+              name={getUrgencyIcon(donation.pickupSchedule.urgency)} 
+              size={16} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.urgencyBadgeText}>
+              {donation.pickupSchedule.urgency.toUpperCase()}
+            </Text>
+          </View>
         </View>
 
-        {/* Donation Details Card */}
-        <Card style={styles.detailsCard}>
+        {/* Title Section */}
+        <View style={styles.titleSection}>
+          <Text style={styles.mainTitle}>{donation.title}</Text>
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <MaterialCommunityIcons name="clock-outline" size={18} color="#718096" />
+              <Text style={styles.metaText}>
+                Listed {formatTimeAgo(donation.createdAt)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Stats Cards */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <MaterialCommunityIcons name="food-variant" size={24} color="#FF8A50" />
+            </View>
+            <Text style={styles.statValue}>{donation.foodDetails.quantity}</Text>
+            <Text style={styles.statLabel}>Quantity</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <MaterialCommunityIcons name="account-group" size={24} color="#4CAF50" />
+            </View>
+            <Text style={styles.statValue}>{donation.foodDetails.estimatedServings}</Text>
+            <Text style={styles.statLabel}>Servings</Text>
+          </View>
+          
+          <View style={styles.statCard}>
+            <View style={styles.statIconContainer}>
+              <MaterialCommunityIcons name="clock-fast" size={24} color="#F44336" />
+            </View>
+            <Text style={styles.statValue}>
+              {calculateHoursUntilExpiry(donation.expiryDateTime)}h
+            </Text>
+            <Text style={styles.statLabel}>Until Expiry</Text>
+          </View>
+        </View>
+
+        {/* Food Details Card */}
+        <Card style={styles.sectionCard}>
           <Card.Content>
-            <Text style={styles.sectionTitle}>Donation Details</Text>
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Type</Text>
-              <Text style={styles.detailValue}>{getTypeLabel(donation.foodDetails.type)}</Text>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="information" size={24} color="#FF8A50" />
+              <Text style={styles.sectionTitle}>Food Information</Text>
             </View>
 
-            <Divider style={styles.divider} />
+            <View style={styles.detailsGrid}>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Type</Text>
+                <View style={styles.detailValueContainer}>
+                  <MaterialCommunityIcons 
+                    name={getFoodTypeIcon(donation.foodDetails.type)} 
+                    size={18} 
+                    color="#FF8A50" 
+                  />
+                  <Text style={styles.detailValue}>
+                    {getTypeLabel(donation.foodDetails.type)}
+                  </Text>
+                </View>
+              </View>
 
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Quantity</Text>
-              <Text style={styles.detailValue}>{donation.foodDetails.quantity}</Text>
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Category</Text>
+                <View style={styles.detailValueContainer}>
+                  <MaterialCommunityIcons name="tag" size={18} color="#4CAF50" />
+                  <Text style={styles.detailValue}>
+                    {donation.foodDetails.category.replace('_', ' ')}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Expiry Date</Text>
+                <View style={styles.detailValueContainer}>
+                  <MaterialCommunityIcons name="calendar-clock" size={18} color="#F44336" />
+                  <Text style={styles.detailValue}>{formatDate(donation.expiryDateTime)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.detailItem}>
+                <Text style={styles.detailLabel}>Pickup Available</Text>
+                <View style={styles.detailValueContainer}>
+                  <MaterialCommunityIcons name="truck-fast" size={18} color="#2196F3" />
+                  <Text style={styles.detailValue}>
+                    {donation.pickupSchedule.availableFrom
+                      ? formatDateTime(donation.pickupSchedule.availableFrom)
+                      : 'Anytime'}
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            <Divider style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Servings</Text>
-              <Text style={styles.detailValue}>{donation.foodDetails.estimatedServings} servings</Text>
-            </View>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Expiry</Text>
-              <Text style={styles.detailValue}>{formatDate(donation.expiryDateTime)}</Text>
-            </View>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Pickup Time</Text>
-              <Text style={styles.detailValue}>
-                {donation.pickupSchedule.availableFrom
-                  ? formatDateTime(donation.pickupSchedule.availableFrom)
-                  : formatDateTime(donation.createdAt)}
-              </Text>
-            </View>
-
-            <Divider style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Pickup Address</Text>
-              <Text style={[styles.detailValue, styles.addressValue]}>
-                {donation.pickupLocation.address}, {donation.pickupLocation.city}
-              </Text>
-            </View>
+            {/* Description */}
+            {donation.foodDetails.description && (
+              <>
+                <Divider style={styles.divider} />
+                <Text style={styles.descriptionLabel}>Description</Text>
+                <Text style={styles.descriptionText}>
+                  {donation.foodDetails.description}
+                </Text>
+              </>
+            )}
           </Card.Content>
         </Card>
-
-        {/* Notes Section */}
-        {(donation.pickupSchedule.specialInstructions || donation.foodDetails.description) && (
-          <Card style={styles.notesCard}>
-            <Card.Content>
-              <Text style={styles.sectionTitle}>Notes</Text>
-              <Text style={styles.notesText}>
-                {donation.pickupSchedule.specialInstructions || donation.foodDetails.description}
-              </Text>
-            </Card.Content>
-          </Card>
-        )}
 
         {/* Ingredients & Allergens */}
         {((donation.foodDetails.ingredients && donation.foodDetails.ingredients.length > 0) ||
           (donation.foodDetails.allergens && donation.foodDetails.allergens.length > 0)) && (
-          <Card style={styles.notesCard}>
+          <Card style={styles.sectionCard}>
             <Card.Content>
               {donation.foodDetails.ingredients && donation.foodDetails.ingredients.length > 0 && (
-                <>
-                  <Text style={styles.sectionTitle}>Ingredients</Text>
+                <View style={styles.tagSection}>
+                  <View style={styles.sectionHeader}>
+                    <MaterialCommunityIcons name="food-apple" size={24} color="#4CAF50" />
+                    <Text style={styles.sectionTitle}>Ingredients</Text>
+                  </View>
                   <View style={styles.tagContainer}>
                     {donation.foodDetails.ingredients.map((ingredient, index) => (
-                      <Chip key={index} style={styles.tag} textStyle={styles.tagText}>
+                      <Chip 
+                        key={index} 
+                        mode="outlined"
+                        style={styles.ingredientChip}
+                        textStyle={styles.ingredientText}
+                        icon="check-circle"
+                      >
                         {ingredient}
                       </Chip>
                     ))}
                   </View>
-                </>
+                </View>
               )}
 
               {donation.foodDetails.allergens && donation.foodDetails.allergens.length > 0 && (
-                <>
-                  <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Allergens</Text>
+                <View style={[styles.tagSection, { marginTop: 20 }]}>
+                  <View style={styles.sectionHeader}>
+                    <MaterialCommunityIcons name="alert-circle" size={24} color="#F44336" />
+                    <Text style={styles.sectionTitle}>Allergen Information</Text>
+                  </View>
                   <View style={styles.tagContainer}>
                     {donation.foodDetails.allergens.map((allergen, index) => (
                       <Chip
                         key={index}
-                        style={[styles.tag, styles.allergenTag]}
-                        textStyle={[styles.tagText, styles.allergenText]}
+                        mode="outlined"
+                        style={styles.allergenChip}
+                        textStyle={styles.allergenChipText}
+                        icon="alert"
                       >
                         {allergen}
                       </Chip>
                     ))}
                   </View>
-                </>
+                </View>
               )}
             </Card.Content>
           </Card>
         )}
 
-        {/* Donor Information */}
-        <Card style={styles.donorCard}>
+        {/* Pickup Location Card */}
+        <Card style={styles.sectionCard}>
           <Card.Content>
-            <Text style={styles.sectionTitle}>Donor Information</Text>
-            <View style={styles.donorInfo}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="map-marker" size={24} color="#2196F3" />
+              <Text style={styles.sectionTitle}>Pickup Location</Text>
+            </View>
+
+            <View style={styles.locationCard}>
+              <View style={styles.locationIconContainer}>
+                <MaterialCommunityIcons name="home-map-marker" size={32} color="#FF8A50" />
+              </View>
+              <View style={styles.locationInfo}>
+                <Text style={styles.locationAddress}>
+                  {donation.pickupLocation.address}
+                </Text>
+                <Text style={styles.locationCity}>
+                  {donation.pickupLocation.city}, {donation.pickupLocation.state} {donation.pickupLocation.zipCode}
+                </Text>
+              </View>
+            </View>
+
+            {donation.pickupSchedule.specialInstructions && (
+              <>
+                <Divider style={styles.divider} />
+                <View style={styles.instructionsSection}>
+                  <View style={styles.instructionsHeader}>
+                    <MaterialCommunityIcons name="information-outline" size={20} color="#2196F3" />
+                    <Text style={styles.instructionsTitle}>Special Instructions</Text>
+                  </View>
+                  <Text style={styles.instructionsText}>
+                    {donation.pickupSchedule.specialInstructions}
+                  </Text>
+                </View>
+              </>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Donor Information */}
+        <Card style={styles.sectionCard}>
+          <Card.Content>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="account" size={24} color="#FF8A50" />
+              <Text style={styles.sectionTitle}>Donor Information</Text>
+            </View>
+
+            <View style={styles.donorCard}>
               <Avatar.Text
-                size={48}
+                size={56}
                 label={donorName.charAt(0).toUpperCase()}
                 style={styles.donorAvatar}
+                labelStyle={styles.donorAvatarLabel}
               />
-              <View style={styles.donorDetails}>
+              <View style={styles.donorInfo}>
                 <Text style={styles.donorName}>{donorName}</Text>
-                <View style={styles.donorStats}>
+                <View style={styles.donorRatingContainer}>
                   <MaterialCommunityIcons name="star" size={16} color="#FFC107" />
-                  <Text style={styles.donorRating}>
-                    {donorRating} • {totalDonations} donations
-                  </Text>
+                  <Text style={styles.donorRating}>{donorRating.toFixed(1)}</Text>
+                  <Text style={styles.donorStats}>• {totalDonations} donations</Text>
+                </View>
+                <View style={styles.donorBadgeContainer}>
+                  <Chip
+                    mode="flat"
+                    style={styles.verifiedBadge}
+                    textStyle={styles.verifiedBadgeText}
+                    icon="check-decagram"
+                  >
+                    Verified Donor
+                  </Chip>
                 </View>
               </View>
             </View>
@@ -394,9 +587,15 @@ export default function DonationDetailsScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Accept Button */}
+      {/* Enhanced Accept Button */}
       {donation.status === 'available' && (
         <View style={styles.actionContainer}>
+          <View style={styles.actionInfo}>
+            <MaterialCommunityIcons name="information" size={20} color="#718096" />
+            <Text style={styles.actionInfoText}>
+              You'll be notified when a volunteer is assigned
+            </Text>
+          </View>
           <Button
             mode="contained"
             onPress={handleAcceptDonation}
@@ -404,8 +603,9 @@ export default function DonationDetailsScreen() {
             loading={accepting}
             disabled={accepting}
             labelStyle={styles.acceptButtonLabel}
+            icon="check-circle"
           >
-            Accept Donation
+            {accepting ? 'Processing...' : 'Accept Donation'}
           </Button>
         </View>
       )}
@@ -422,58 +622,193 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
+    elevation: 2,
+  },
+  backButton: {
+    marginLeft: -8,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#2D3748',
   },
+  headerStatusChip: {
+    height: 24,
+  },
+  headerStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
   scrollView: {
     flex: 1,
   },
-  imageContainer: {
-    height: 220,
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  heroSection: {
+    position: 'relative',
+    height: 280,
     backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
   },
-  imageScrollContent: {
-    paddingHorizontal: 10,
+  imageGallery: {
+    height: 280,
   },
-  image: {
-    width: (width - 80) / 4,
-    height: 100,
-    borderRadius: 8,
-    marginRight: 8,
+  heroImage: {
+    width: width,
+    height: 280,
+  },
+  placeholderHero: {
+    width: width,
+    height: 280,
     backgroundColor: '#F7FAFC',
-  },
-  imagePlaceholder: {
-    width: (width - 80) / 4,
-    height: 100,
-    backgroundColor: '#F7FAFC',
-    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  detailsCard: {
-    margin: 20,
-    marginBottom: 12,
-    elevation: 2,
-  },
-  sectionTitle: {
+  placeholderText: {
     fontSize: 16,
+    color: '#CBD5E0',
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  imageIndicator: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  indicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  indicatorDotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 24,
+  },
+  urgencyBadgeOverlay: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  urgencyBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  titleSection: {
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  mainTitle: {
+    fontSize: 24,
     fontWeight: '700',
     color: '#2D3748',
+    marginBottom: 12,
+    lineHeight: 32,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 13,
+    color: '#718096',
+    fontWeight: '500',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F7FAFC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#718096',
+    fontWeight: '500',
+  },
+  sectionCard: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    elevation: 2,
+    borderRadius: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     marginBottom: 16,
   },
-  detailRow: {
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2D3748',
+  },
+  detailsGrid: {
+    gap: 16,
+  },
+  detailItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -482,106 +817,215 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 14,
     color: '#718096',
-    flex: 1,
+    fontWeight: '500',
+  },
+  detailValueContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2D3748',
-    flex: 1,
-    textAlign: 'right',
-  },
-  addressValue: {
-    fontSize: 12,
   },
   divider: {
-    marginVertical: 4,
+    marginVertical: 16,
   },
-  notesCard: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    elevation: 2,
+  descriptionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
   },
-  notesText: {
+  descriptionText: {
     fontSize: 14,
     color: '#4A5568',
-    lineHeight: 20,
+    lineHeight: 22,
+  },
+  tagSection: {
+    marginBottom: 0,
   },
   tagContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 8,
+    marginTop: 12,
   },
-  tag: {
-    backgroundColor: '#E6F7FF',
-    height: 28,
+  ingredientChip: {
+    backgroundColor: '#F0FDF4',
+    borderColor: '#86EFAC',
   },
-  tagText: {
+  ingredientText: {
     fontSize: 12,
-    color: '#2D3748',
+    color: '#15803D',
+    fontWeight: '500',
   },
-  allergenTag: {
+  allergenChip: {
     backgroundColor: '#FFF3E0',
+    borderColor: '#FFB74D',
   },
-  allergenText: {
-    color: '#F57C00',
+  allergenChipText: {
+    fontSize: 12,
+    color: '#E65100',
+    fontWeight: '500',
   },
-  donorCard: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    elevation: 2,
+  locationCard: {
+    flexDirection: 'row',
+    backgroundColor: '#F7FAFC',
+    borderRadius: 12,
+    padding: 16,
+    gap: 16,
   },
-  donorInfo: {
+  locationIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  locationAddress: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  locationCity: {
+    fontSize: 13,
+    color: '#718096',
+    lineHeight: 18,
+  },
+  instructionsSection: {
+    marginTop: 16,
+  },
+  instructionsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  instructionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+  },
+  instructionsText: {
+    fontSize: 14,
+    color: '#4A5568',
+    lineHeight: 20,
+    paddingLeft: 28,
+  },
+  donorCard: {
+    flexDirection: 'row',
+    gap: 16,
+    paddingVertical: 8,
   },
   donorAvatar: {
     backgroundColor: '#FF8A50',
   },
-  donorDetails: {
-    marginLeft: 12,
+  donorAvatarLabel: {
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  donorInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   donorName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#2D3748',
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  donorStats: {
+  donorRatingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 8,
   },
   donorRating: {
     fontSize: 14,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginLeft: 4,
+  },
+  donorStats: {
+    fontSize: 14,
     color: '#718096',
     marginLeft: 4,
+  },
+  donorBadgeContainer: {
+    flexDirection: 'row',
+  },
+  verifiedBadge: {
+    backgroundColor: '#E8F5E9',
+    height: 28,
+  },
+  verifiedBadgeText: {
+    fontSize: 11,
+    color: '#2E7D32',
+    fontWeight: '600',
   },
   actionContainer: {
     padding: 20,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  actionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  actionInfoText: {
+    fontSize: 13,
+    color: '#718096',
+    flex: 1,
   },
   acceptButton: {
-    backgroundColor: '#4CD964',
-    paddingVertical: 8,
+    backgroundColor: '#FF8A50',
+    paddingVertical: 12,
+    borderRadius: 12,
+    elevation: 2,
   },
   acceptButtonLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 40,
+  },
+  errorTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginTop: 20,
+    marginBottom: 8,
   },
   errorText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 15,
     color: '#718096',
-    marginVertical: 16,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  errorButton: {
+    backgroundColor: '#FF8A50',
   },
 });

@@ -39,6 +39,8 @@ interface ClaimHistory {
 }
 
 interface HistoryStats {
+  data: any;
+  success: any;
   totalClaims: number;
   approvedClaims: number;
   completedClaims: number;

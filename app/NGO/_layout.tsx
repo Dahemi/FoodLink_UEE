@@ -74,6 +74,18 @@ export default function NGOLayout() {
             href: null, // Hide from tab bar
           }}
         />
+        <Tabs.Screen
+          name="help-support"
+          options={{
+            href: null, // Hide from tab bar - accessible only via button
+          }}
+        />
+        <Tabs.Screen
+          name="advanced-settings"
+          options={{
+            href: null, // Hide from tab bar - accessible only via button
+          }}
+        />
       </Tabs>
     </ProtectedRoute>
   );

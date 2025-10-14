@@ -361,30 +361,43 @@ export default function NGOHome() {
         <Card key={requirement.id} style={styles.requirementCard}>
           <Card.Content>
             <View style={styles.requirementHeader}>
-              <Text style={styles.requirementTitle}>{requirement.title}</Text>
-              <Chip
-                mode="flat"
-                style={[styles.urgencyChip, { backgroundColor: `${getUrgencyColor(requirement.urgency)}20` }]}
-                textStyle={[styles.urgencyText, { color: getUrgencyColor(requirement.urgency) }]}
-              >
-                {requirement.urgency.toUpperCase()}
-              </Chip>
+              <View style={styles.requirementTitleContainer}>
+                <Text style={styles.requirementTitle}>{requirement.title}</Text>
+                <Text style={styles.servingsText}>
+                  🍽️ {requirement.servings} servings needed
+                </Text>
+              </View>
+              <View style={[
+                styles.urgencyTag,
+                { backgroundColor: getUrgencyColor(requirement.urgency) }
+              ]}>
+                <MaterialCommunityIcons 
+                  name={requirement.urgency === 'urgent' ? 'alert-circle' : requirement.urgency === 'high' ? 'fire' : requirement.urgency === 'medium' ? 'clock-fast' : 'clock-outline'} 
+                  size={14} 
+                  color="#FFFFFF" 
+                />
+                <Text style={styles.urgencyTagText}>
+                  {requirement.urgency.charAt(0).toUpperCase() + requirement.urgency.slice(1)}
+                </Text>
+              </View>
             </View>
             <View style={styles.requirementDetails}>
-              <Text style={styles.servingsText}>
-                🍽️ {requirement.servings} servings needed
-              </Text>
               <Chip
                 mode="flat"
-                style={[styles.statusChip, { backgroundColor: `${getStatusColor(requirement.status)}20` }]}
+                style={[styles.statusChip, { backgroundColor: `${getStatusColor(requirement.status)}15` }]}
                 textStyle={[styles.statusText, { color: getStatusColor(requirement.status) }]}
+                icon={() => <MaterialCommunityIcons 
+                  name={requirement.status === 'open' ? 'clock-outline' : requirement.status === 'fulfilled' ? 'check-circle' : 'progress-clock'} 
+                  size={14} 
+                  color={getStatusColor(requirement.status)} 
+                />}
               >
-                {requirement.status.replace('_', ' ').toUpperCase()}
+                {requirement.status.replace('_', ' ')}
               </Chip>
+              <Text style={styles.timeText}>
+                {new Date(requirement.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </Text>
             </View>
-            <Text style={styles.timeText}>
-              Created {new Date(requirement.createdAt).toLocaleDateString()}
-            </Text>
           </Card.Content>
         </Card>
       ))}
@@ -429,16 +442,24 @@ export default function NGOHome() {
           <Card key={donation.id} style={styles.donationCard}>
             <Card.Content>
               <View style={styles.donationHeader}>
-                <Text style={styles.donationTitle}>{donation.title}</Text>
-                <Chip
-                  mode="flat"
-                  style={[styles.urgencyChip, { backgroundColor: `${getUrgencyColor(donation.urgency)}20` }]}
-                  textStyle={[styles.urgencyText, { color: getUrgencyColor(donation.urgency) }]}
-                >
-                  {donation.urgency.toUpperCase()}
-                </Chip>
+                <View style={styles.donationTitleContainer}>
+                  <Text style={styles.donationTitle}>{donation.title}</Text>
+                  <Text style={styles.donorText}>From: {donation.donorName}</Text>
+                </View>
+                <View style={[
+                  styles.urgencyTag,
+                  { backgroundColor: getUrgencyColor(donation.urgency) }
+                ]}>
+                  <MaterialCommunityIcons 
+                    name={donation.urgency === 'urgent' ? 'alert-circle' : donation.urgency === 'high' ? 'fire' : donation.urgency === 'medium' ? 'clock-fast' : 'clock-outline'} 
+                    size={14} 
+                    color="#FFFFFF" 
+                  />
+                  <Text style={styles.urgencyTagText}>
+                    {donation.urgency.charAt(0).toUpperCase() + donation.urgency.slice(1)}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.donorText}>From: {donation.donorName}</Text>
               <View style={styles.donationDetails}>
                 <View style={styles.detailItem}>
                   <MaterialCommunityIcons name="food" size={16} color="#718096" />
@@ -450,7 +471,7 @@ export default function NGOHome() {
                 </View>
                 <View style={styles.detailItem}>
                   <MaterialCommunityIcons name="clock" size={16} color="#718096" />
-                  <Text style={styles.detailText}>{donation.expiryTime}</Text>
+                  <Text style={styles.detailText}>Expires in {donation.expiryTime}</Text>
                 </View>
                 {donation.distance && (
                   <View style={styles.detailItem}>
@@ -463,9 +484,11 @@ export default function NGOHome() {
                 mode="contained"
                 onPress={() => router.push(`/NGO/donation-details?id=${donation.id}`)}
                 style={styles.claimButton}
-                compact
+                labelStyle={styles.claimButtonText}
+                icon="arrow-right"
+                contentStyle={{ flexDirection: 'row-reverse' }}
               >
-                View Details
+                View & Claim
               </Button>
             </Card.Content>
           </Card>
@@ -672,19 +695,45 @@ const styles = StyleSheet.create({
   requirementCard: {
     marginBottom: 12,
     elevation: 2,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
   },
   requirementHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  requirementTitleContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   requirementTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2D3748',
-    flex: 1,
-    marginRight: 8,
+    marginBottom: 6,
+    lineHeight: 22,
+  },
+  urgencyTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  urgencyTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   urgencyChip: {
     height: 24,
@@ -697,62 +746,83 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F7FAFC',
   },
   servingsText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#718096',
+    fontWeight: '500',
   },
   statusChip: {
-    height: 24,
+    height: 26,
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
+    textTransform: 'capitalize',
   },
   timeText: {
     fontSize: 12,
     color: '#A0AEC0',
+    fontWeight: '500',
   },
   donationCard: {
     marginBottom: 12,
-    elevation: 2,
+    elevation: 3,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
   },
   donationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  donationTitleContainer: {
+    flex: 1,
+    marginRight: 12,
   },
   donationTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2D3748',
-    flex: 1,
-    marginRight: 8,
+    marginBottom: 4,
+    lineHeight: 22,
   },
   donorText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#718096',
-    marginBottom: 12,
+    fontWeight: '500',
   },
   donationDetails: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 8,
   },
   detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   detailText: {
     fontSize: 12,
-    color: '#718096',
+    color: '#4A5568',
+    fontWeight: '500',
   },
   claimButton: {
     backgroundColor: '#FF8A50',
+    borderRadius: 8,
+  },
+  claimButtonText: {
+    fontWeight: '600',
+    letterSpacing: 0.5,
   },
   emptyCard: {
     padding: 20,
