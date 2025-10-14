@@ -202,210 +202,191 @@ export default function BeneficiaryProfile() {
   };
  
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Top header with logged-in user's name */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EEF2F7' }}>
-        <IconButton icon="arrow-left" size={24} onPress={() => router.back()} />
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Profile</Text>
-          <Text style={{ fontSize: 12, color: '#718096', marginTop: 2 }}>
-            {authState.user?.name ?? ''}
-          </Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView}>
+        {/* Top header with logged-in user's name */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#EEF2F7' }}>
+          <IconButton icon="arrow-left" size={24} onPress={() => router.back()} />
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#2D3748' }}>Profile</Text>
+            <Text style={{ fontSize: 12, color: '#718096', marginTop: 2 }}>
+              {authState.user?.name ?? ''}
+            </Text>
+          </View>
+          <View style={{ width: 40 }} />
         </View>
-        <View style={{ width: 40 }} />
-      </View>
-       
-       <ScrollView style={styles.content} contentContainerStyle={{ paddingTop: 8 }}>
-         {/* Profile Header */}
-         <View style={styles.header}>
-           <Avatar.Text 
-             size={80} 
-             label={authState.user?.name?.substring(0, 2).toUpperCase() || 'B'} 
-             style={styles.avatar}
-           />
-           <Text style={styles.name}>{authState.user?.name}</Text>
-           <Text style={styles.email}>{authState.user?.email}</Text>
-         </View>
- 
-         {/* Impact Metrics */}
-         <View style={styles.metricsContainer}>
-           <Text style={styles.sectionTitle}>Impact Metrics</Text>
-           <View style={styles.metricsGrid}>
-             <View style={styles.metricItem}>
-               <Text style={styles.metricValue}>15</Text>
-               <Text style={styles.metricLabel}>Donations Made</Text>
-             </View>
-             <View style={styles.metricItem}>
-               <Text style={styles.metricValue}>200</Text>
-               <Text style={styles.metricLabel}>Meals Served</Text>
+         
+         <View style={styles.content}>
+           {/* Profile Header */}
+           <View style={styles.header}>
+             <Avatar.Text 
+               size={80} 
+               label={authState.user?.name?.substring(0, 2).toUpperCase() || 'B'} 
+               style={styles.avatar}
+             />
+             <Text style={styles.name}>{authState.user?.name}</Text>
+             <Text style={styles.email}>{authState.user?.email}</Text>
+           </View>
+     
+           {/* Impact Metrics */}
+           <View style={styles.metricsContainer}>
+             <Text style={styles.sectionTitle}>Impact Metrics</Text>
+             <View style={styles.metricsGrid}>
+               <View style={styles.metricItem}>
+                 <Text style={styles.metricValue}>15</Text>
+                 <Text style={styles.metricLabel}>Donations Made</Text>
+               </View>
+               <View style={styles.metricItem}>
+                 <Text style={styles.metricValue}>200</Text>
+                 <Text style={styles.metricLabel}>Meals Served</Text>
+               </View>
              </View>
            </View>
-         </View>
- 
-         {/* Settings List */}
-         <View style={styles.settingsContainer}>
-           <Text style={styles.sectionTitle}>Settings</Text>
-           
-           <TouchableOpacity style={styles.settingItem} onPress={() => openReminders()}>
-             <View style={styles.settingLeft}>
-               <MaterialCommunityIcons name="bell-outline" size={24} color="#4A5568" />
-               <Text style={styles.settingText}>My Reminders</Text>
-             </View>
-             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-           </TouchableOpacity>
-           
-           <Divider style={styles.divider} />
-           
-           {/*<TouchableOpacity style={styles.settingItem}>
-             <View style={styles.settingLeft}>
-               <MaterialCommunityIcons name="history" size={24} color="#4A5568" />
-               <Text style={styles.settingText}>Pickup History</Text>
-             </View>
-             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-           </TouchableOpacity>*/}
-           
-           <Divider style={styles.divider} />
-           
-           <TouchableOpacity style={styles.settingItem} onPress={() => openEdit()}>
-             <View style={styles.settingLeft}>
-               <MaterialCommunityIcons name="account-edit-outline" size={24} color="#4A5568" />
-               <Text style={styles.settingText}>Edit Profile</Text>
-             </View>
-             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-           </TouchableOpacity>
-           
-           <Divider style={styles.divider} />
-           
-           <TouchableOpacity style={styles.settingItem}>
-             <View style={styles.settingLeft}>
-               <MaterialCommunityIcons name="bell-ring-outline" size={24} color="#4A5568" />
-               <Text style={styles.settingText}>Notification Settings</Text>
-             </View>
-             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-           </TouchableOpacity>
-           
-           <Divider style={styles.divider} />
-           
-           <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
-             <View style={styles.settingLeft}>
-               <MaterialCommunityIcons name="logout" size={24} color="#F56565" />
-               <Text style={[styles.settingText, styles.logoutText]}>Logout</Text>
-             </View>
-             <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
-           </TouchableOpacity>
-         </View>
-       </ScrollView>
- 
-      {/* Reminders modal */}
-      <Modal visible={showRemindersModal} animationType="slide" onRequestClose={() => setShowRemindersModal(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-          <View style={modalStyles.header}>
-            <IconButton icon="arrow-left" size={24} onPress={() => setShowRemindersModal(false)} />
-            <Text style={modalStyles.title}>My Reminders</Text>
-            <View style={{ width: 40 }} />
+     
+           {/* Settings List */}
+           <View style={styles.settingsContainer}>
+             <Text style={styles.sectionTitle}>Settings</Text>
+              
+            <TouchableOpacity style={styles.settingItem} onPress={() => openReminders()}>
+              <View style={styles.settingLeft}>
+                <MaterialCommunityIcons name="bell-outline" size={24} color="#4A5568" />
+                <Text style={styles.settingText}>My Reminders</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
+            </TouchableOpacity>
+              
+            <Divider style={styles.divider} />
+            
+            <TouchableOpacity style={styles.settingItem} onPress={() => openEdit()}>
+              <View style={styles.settingLeft}>
+                <MaterialCommunityIcons name="account-edit-outline" size={24} color="#4A5568" />
+                <Text style={styles.settingText}>Edit Profile</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={24} color="#A0AEC0" />
+            </TouchableOpacity>
+            
+            <Divider style={styles.divider} />
+            
+            <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
+              <View style={styles.settingLeft}>
+                <MaterialCommunityIcons name="logout" size={24} color="#F56565" />
+                <Text style={[styles.settingText, styles.logoutText]}>Logout</Text>
+              </View>
+            </TouchableOpacity>
           </View>
+        </View>
  
-          {loadingReminders ? (
-            <LoadingSpinner message="Loading reminders..." />
-          ) : (
-            <FlatList
-              data={Object.values(reminders)}
-              keyExtractor={(item: any) => item.id}
-              contentContainerStyle={{ padding: 12 }}
-              renderItem={({ item }: { item: any }) => (
-                <Card style={modalStyles.card}>
-                  <View style={modalStyles.row}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={modalStyles.name}>{item.name}</Text>
-                      <Text style={modalStyles.sub}>{item.nextPickup ? `Next pickup: ${item.nextPickup}` : (item.address || '')}</Text>
+        {/* Reminders modal */}
+        <Modal visible={showRemindersModal} animationType="slide" onRequestClose={() => setShowRemindersModal(false)}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+            <View style={modalStyles.header}>
+              <IconButton icon="arrow-left" size={24} onPress={() => setShowRemindersModal(false)} />
+              <Text style={modalStyles.title}>My Reminders</Text>
+              <View style={{ width: 40 }} />
+            </View>
+ 
+            {loadingReminders ? (
+              <LoadingSpinner message="Loading reminders..." />
+            ) : (
+              <FlatList
+                data={Object.values(reminders)}
+                keyExtractor={(item: any) => item.id}
+                contentContainerStyle={{ padding: 12 }}
+                renderItem={({ item }: { item: any }) => (
+                  <Card style={modalStyles.card}>
+                    <View style={modalStyles.row}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={modalStyles.name}>{item.name}</Text>
+                        <Text style={modalStyles.sub}>{item.nextPickup ? `Next pickup: ${item.nextPickup}` : (item.address || '')}</Text>
+                      </View>
+                      <Switch
+                        value={!!item.enabled}
+                        onValueChange={(val) => toggleReminder(item.id, val)}
+                        trackColor={{ true: '#FF8A50', false: '#E2E8F0' }}
+                        thumbColor="#FFFFFF"
+                      />
                     </View>
-                    <Switch
-                      value={!!item.enabled}
-                      onValueChange={(val) => toggleReminder(item.id, val)}
-                      trackColor={{ true: '#FF8A50', false: '#E2E8F0' }}
-                      thumbColor="#FFFFFF"
-                    />
+                  </Card>
+                )}
+                ListEmptyComponent={() => (
+                  <View style={{ padding: 24, alignItems: 'center' }}>
+                    <Text style={{ color: '#718096' }}>No reminders configured yet. Set a reminder from the Map.</Text>
                   </View>
-                </Card>
-              )}
-              ListEmptyComponent={() => (
-                <View style={{ padding: 24, alignItems: 'center' }}>
-                  <Text style={{ color: '#718096' }}>No reminders configured yet. Set a reminder from the Map.</Text>
-                </View>
-              )}
-            />
-          )}
-        </SafeAreaView>
-      </Modal>
+                )}
+              />
+            )}
+          </SafeAreaView>
+        </Modal>
 
-      {/* Edit Profile modal */}
-      <Modal visible={showEditModal} animationType="slide" onRequestClose={() => setShowEditModal(false)}>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-          <View style={modalStyles.header}>
-            <IconButton icon="arrow-left" size={24} onPress={() => setShowEditModal(false)} />
-            <Text style={modalStyles.title}>Edit Profile</Text>
-            <View style={{ width: 40 }} />
-          </View>
-          <ScrollView contentContainerStyle={{ padding: 16 }}>
-            <TextInput
-              label="Full Name"
-              value={editForm.name}
-              onChangeText={(t) => setEditForm(prev => ({ ...prev, name: t }))}
-              mode="outlined"
-              style={{ marginBottom: 12 }}
-            />
-            <TextInput
-              label="Phone"
-              value={editForm.phone}
-              onChangeText={(t) => setEditForm(prev => ({ ...prev, phone: t }))}
-              mode="outlined"
-              keyboardType="phone-pad"
-              style={{ marginBottom: 12 }}
-            />
-            <Text style={{ marginTop: 8, marginBottom: 6, color: '#4A5568', fontWeight: '600' }}>Address</Text>
-            <TextInput
-              label="Street"
-              value={editForm.address.street}
-              onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, street: t } }))}
-              mode="outlined"
-              style={{ marginBottom: 12 }}
-            />
-            <TextInput
-              label="City"
-              value={editForm.address.city}
-              onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, city: t } }))}
-              mode="outlined"
-              style={{ marginBottom: 12 }}
-            />
-            <TextInput
-              label="State"
-              value={editForm.address.state}
-              onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, state: t } }))}
-              mode="outlined"
-              style={{ marginBottom: 12 }}
-            />
-            <TextInput
-              label="ZIP Code"
-              value={editForm.address.zipCode}
-              onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, zipCode: t } }))}
-              mode="outlined"
-              keyboardType="numeric"
-              style={{ marginBottom: 12 }}
-            />
-            <TextInput
-              label="Country"
-              value={editForm.address.country}
-              onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, country: t } }))}
-              mode="outlined"
-              style={{ marginBottom: 20 }}
-            />
-            <Button mode="contained" onPress={handleSaveEdit} loading={editLoading} disabled={editLoading} style={{ marginBottom: 12 }}>
-              Save Changes
-            </Button>
-            <Button mode="text" onPress={() => setShowEditModal(false)}>Cancel</Button>
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+        {/* Edit Profile modal */}
+        <Modal visible={showEditModal} animationType="slide" onRequestClose={() => setShowEditModal(false)}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+            <View style={modalStyles.header}>
+              <IconButton icon="arrow-left" size={24} onPress={() => setShowEditModal(false)} />
+              <Text style={modalStyles.title}>Edit Profile</Text>
+              <View style={{ width: 40 }} />
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <TextInput
+                label="Full Name"
+                value={editForm.name}
+                onChangeText={(t) => setEditForm(prev => ({ ...prev, name: t }))}
+                mode="outlined"
+                style={{ marginBottom: 12 }}
+              />
+              <TextInput
+                label="Phone"
+                value={editForm.phone}
+                onChangeText={(t) => setEditForm(prev => ({ ...prev, phone: t }))}
+                mode="outlined"
+                keyboardType="phone-pad"
+                style={{ marginBottom: 12 }}
+              />
+              <Text style={{ marginTop: 8, marginBottom: 6, color: '#4A5568', fontWeight: '600' }}>Address</Text>
+              <TextInput
+                label="Street"
+                value={editForm.address.street}
+                onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, street: t } }))}
+                mode="outlined"
+                style={{ marginBottom: 12 }}
+              />
+              <TextInput
+                label="City"
+                value={editForm.address.city}
+                onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, city: t } }))}
+                mode="outlined"
+                style={{ marginBottom: 12 }}
+              />
+              <TextInput
+                label="State"
+                value={editForm.address.state}
+                onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, state: t } }))}
+                mode="outlined"
+                style={{ marginBottom: 12 }}
+              />
+              <TextInput
+                label="ZIP Code"
+                value={editForm.address.zipCode}
+                onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, zipCode: t } }))}
+                mode="outlined"
+                keyboardType="numeric"
+                style={{ marginBottom: 12 }}
+              />
+              <TextInput
+                label="Country"
+                value={editForm.address.country}
+                onChangeText={(t) => setEditForm(prev => ({ ...prev, address: { ...prev.address, country: t } }))}
+                mode="outlined"
+                style={{ marginBottom: 20 }}
+              />
+              <Button mode="contained" onPress={handleSaveEdit} loading={editLoading} disabled={editLoading} style={{ marginBottom: 12 }}>
+                Save Changes
+              </Button>
+              <Button mode="text" onPress={() => setShowEditModal(false)}>Cancel</Button>
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+       </ScrollView>
      </SafeAreaView>
    );
  }
