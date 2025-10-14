@@ -9,6 +9,7 @@ import {
   Platform,
   TouchableOpacity,
   Dimensions,
+  Image,  // Add this import
 } from 'react-native';
 import { TextInput, Button, Card, Chip } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -130,9 +131,11 @@ export default function BeneficiaryLoginScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle1} />
-            <View style={styles.logoCircle2} />
-            <Text style={styles.logoText}>FoodLink</Text>
+            <Image
+              source={require('../assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>
             {isLogin ? 'Welcome Back!' : 'Join as Beneficiary'}
@@ -332,4 +335,16 @@ export default function BeneficiaryLoginScreen() {
   );
 }
 
-const styles = loginStyles;
+// Update the styles to add the logo style and remove the circle styles
+const styles = {
+  ...loginStyles,
+  logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 20,
+  },
+  // Remove these styles as they're no longer needed
+  logoCircle1: undefined,
+  logoCircle2: undefined,
+  logoText: undefined,
+};

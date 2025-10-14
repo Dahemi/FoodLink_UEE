@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 export const loginStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7FAFC',
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -21,32 +21,10 @@ export const loginStyles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  logoCircle1: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFB380',
-    top: 10,
-    left: 15,
-    transform: [{ rotate: '-15deg' }],
-  },
-  logoCircle2: {
-    position: 'absolute',
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    backgroundColor: '#FF8A50',
-    top: 15,
-    right: 10,
-    transform: [{ rotate: '20deg' }],
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginTop: 50,
-    letterSpacing: 0.5,
+  logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,

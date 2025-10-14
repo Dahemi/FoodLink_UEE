@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Alert, Text, TouchableOpacity, Image, Modal, SafeAreaView, ScrollView, Pressable, Dimensions } from 'react-native';
-import MapView, { Marker, MapViewProps } from 'react-native-maps';
+import MapView, { Marker, MapViewProps, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Button, Chip, Card } from 'react-native-paper';
-import { useAuth } from '../../context/AuthContext';
+import { Button, Chip, Card, TextInput } from 'react-native-paper';
+import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { NavigationService } from '../../services/navigationService';
 import { FoodPointReminderService } from '../../services/foodPointReminderService';
+import { DirectionsApi } from '../../services/directionsApi';
+import { LocationService } from '../../services/LocationService';
+import { FeedbackService } from '../../services/feedbackService';
+import { Avatar } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
 interface NGOItem {
   id: string;
@@ -22,7 +27,7 @@ interface NGOItem {
 }
 
 export default function FoodFinderMap() {
-  const { authState } = useAuth();
+  const { authState } = useBeneficiaryAuth(); // Make sure you're using the beneficiary auth context
   const router = useRouter();
   const mapRef = useRef<MapView | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(true);
@@ -35,9 +40,26 @@ export default function FoodFinderMap() {
   });
   const [ngos, setNgos] = useState<NGOItem[]>([]);
   const [selectedNgo, setSelectedNgo] = useState<NGOItem | null>(null);
+  const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[] | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ distanceText?: string; durationText?: string } | null>(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
 
   // New: full/detail view visible state (replaces separate route)
   const [fullDetailsVisible, setFullDetailsVisible] = useState(false);
+
+  // Feedback modal state
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState<number>(5);
+  const [feedbackComment, setFeedbackComment] = useState<string>('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // New state variables for feedbacks
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+
+  // Read incoming query params when navigating from Home -> Map
+  const params = useLocalSearchParams<{ lat?: string; lng?: string; id?: string; ts?: string; name?: string; address?: string }>();
+  const lastPanRef = useRef<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -62,6 +84,39 @@ export default function FoodFinderMap() {
 
     fetchNgos();
   }, []);
+
+  useEffect(() => {
+    if (!params?.lat || !params?.lng) return;
+
+    const lat = Number(params.lat);
+    const lng = Number(params.lng);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
+    // Build a key that includes id + coordinates + timestamp (ts) so repeated taps always produce a new key
+    const key = `${params.id ?? ''}@${params.lat},${params.lng}@${params.ts ?? ''}`;
+
+    // If we've already panned for this exact key, skip; otherwise animate & select
+    if (lastPanRef.current === key) return;
+    lastPanRef.current = key;
+
+    // Small timeout to ensure map has mounted/rendered
+    setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.animateToRegion(
+          { latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 },
+          350
+        );
+      }
+
+      // Populate a minimal selectedNgo so the callout / bottom sheet can show if needed
+      setSelectedNgo(prev => ({
+        id: params.id || prev?.id || `p-${Date.now()}`,
+        name: params?.name || prev?.name || 'Location',
+        address: params?.address || prev?.address || '',
+        coordinates: { latitude: lat, longitude: lng },
+      } as any));
+    }, 120);
+  }, [params?.lat, params?.lng, params?.id, params?.ts]);
 
   const resolveToken = async (): Promise<string | null> => {
     const tFromCtx = (authState as any)?.token || (authState as any)?.accessToken;
@@ -171,10 +226,98 @@ export default function FoodFinderMap() {
     NavigationService.openMaps(addr, ngo.name);
   };
 
+  const handleGetDirections = async (ngo: NGOItem) => {
+    if (!ngo?.coordinates) return Alert.alert('No coordinates available');
+    try {
+      setLoadingRoute(true);
+      const origin = await LocationService.getCurrentLocation();
+      if (!origin) {
+        Alert.alert('Location required', 'Allow location access to show directions.');
+        setLoadingRoute(false);
+        return;
+      }
+      const res = await DirectionsApi.getDirections(origin, ngo.coordinates as { latitude: number; longitude: number });
+      setRouteCoords(res.coordinates);
+      setRouteInfo({ distanceText: res.distanceText, durationText: res.durationText });
+      // Fit map to route: animate to first point then region covering middle - simple approach
+      const middle = res.coordinates[Math.floor(res.coordinates.length / 2)];
+      if (mapRef.current && middle) {
+        mapRef.current.animateToRegion({ latitude: middle.latitude, longitude: middle.longitude, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 400);
+      }
+    } catch (err: any) {
+      console.warn('Directions failed', err);
+      Alert.alert('Directions error', err?.message || 'Could not get directions');
+    } finally {
+      setLoadingRoute(false);
+    }
+  };
+
   // Open the in-screen detail sheet (no new navigation)
   const handleSeeDetails = (ngo: NGOItem) => {
     setSelectedNgo(ngo);
     setFullDetailsVisible(true);
+    if (ngo.id) {
+      fetchFeedbacks(ngo.id);
+    }
+  };
+
+  // resolveToken() already exists in this file — reuse it
+  const submitFeedback = async () => {
+    if (!selectedNgo) return Alert.alert('No NGO selected');
+    
+    // Debug log to check auth state
+    console.log('Auth state when submitting feedback:', {
+      isAuthenticated: authState.isAuthenticated,
+      userId: authState.user?._id,
+      user: authState.user
+    });
+
+    if (!authState.isAuthenticated || !authState.user?._id) {
+      return Alert.alert('Authentication Required', 'Please log in to submit feedback.');
+    }
+    
+    try {
+      setSubmittingFeedback(true);
+
+      await FeedbackService.submitFeedback({
+        ngoId: selectedNgo.id,
+        rating: feedbackRating,
+        comment: feedbackComment,
+        beneficiaryId: authState.user._id, // Use _id instead of id
+        anonymous: false
+      });
+
+      // Refresh feedbacks after submission
+      await fetchFeedbacks(selectedNgo.id);
+      Alert.alert('Thank you', 'Your feedback has been submitted.');
+      setFeedbackModalVisible(false);
+      setFeedbackRating(5);
+      setFeedbackComment('');
+    } catch (err) {
+      console.error('Feedback submit failed:', err);
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to submit feedback');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  // New function to fetch feedbacks for a specific NGO
+  const fetchFeedbacks = async (ngoId: string) => {
+    try {
+      setLoadingFeedbacks(true);
+      const response = await FeedbackService.getFeedbacksForNgo(ngoId);
+      console.log('Fetched feedbacks:', response);
+      
+      // Ensure we're setting the correct data structure
+      const feedbackData = response.data || response;
+      setFeedbacks(Array.isArray(feedbackData) ? feedbackData : []);
+      
+    } catch (err) {
+      console.error('Failed to fetch feedbacks:', err);
+      Alert.alert('Error', 'Could not load feedback');
+    } finally {
+      setLoadingFeedbacks(false);
+    }
   };
 
   if (loadingLocation || loadingNgos) return <LoadingSpinner message="Loading map..." />;
@@ -203,7 +346,20 @@ export default function FoodFinderMap() {
             onPress={() => onMarkerPress(ngo)}
           />
         ))}
+
+        {/* render route if available */}
+        {routeCoords && routeCoords.length > 1 && (
+          <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#FF8A50" lineCap="round" lineJoin="round" />
+        )}
       </MapView>
+
+      {/* small info bar when route is present */}
+      {routeInfo && (
+        <View style={{ position: 'absolute', top: 80, left: 12, right: 12, padding: 10, backgroundColor: '#FFFFFF', borderRadius: 8, elevation: 4 }}>
+          <Text style={{ fontWeight: '700' }}>{routeInfo.durationText || '—'}</Text>
+          <Text style={{ color: '#718096' }}>{routeInfo.distanceText || ''}</Text>
+        </View>
+      )}
 
       {/* Bottom callout */}
       {selectedNgo && !fullDetailsVisible && (
@@ -231,6 +387,17 @@ export default function FoodFinderMap() {
               <Chip compact style={styles.openChip}>{selectedNgo.isVerified ? 'Verified' : 'NGO'}</Chip>
               <Button mode="contained" onPress={() => handleDirections(selectedNgo)} style={styles.dirBtn} compact>Directions</Button>
               <Button mode="outlined" onPress={() => handleSeeDetails(selectedNgo)} compact>See Details</Button>
+
+              {/* Set Reminder button is already here in your file */}
+              {/* Add Give Feedback immediately after */}
+              <Button
+                mode="contained"
+                onPress={() => setFeedbackModalVisible(true)}
+                style={[styles.actionBtn, { marginTop: 8 }]}
+                compact
+              >
+                Give Feedback
+              </Button>
             </View>
           </View>
         </Card>
@@ -292,11 +459,117 @@ export default function FoodFinderMap() {
               Set Reminder
             </Button>
 
+            {/* New: Feedbacks section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Feedback & Reviews</Text>
+              
+              {loadingFeedbacks ? (
+                <LoadingSpinner size="small" />
+              ) : feedbacks.length === 0 ? (
+                <Text style={styles.emptyText}>No feedbacks yet</Text>
+              ) : (
+                feedbacks.map((feedback, index) => (
+                  <Card key={feedback._id || index} style={styles.feedbackCard}>
+                    <Card.Content>
+                      <View style={styles.feedbackHeader}>
+                        <View style={styles.feedbackUser}>
+                          <Avatar.Text 
+                            size={32} 
+                            label={
+                              feedback.anonymous 
+                                ? "A" 
+                                : ((feedback.beneficiaryId && typeof feedback.beneficiaryId === 'object' && feedback.beneficiaryId.name) 
+                                    ? feedback.beneficiaryId.name.charAt(0)
+                                    : "U")
+                            }
+                            style={styles.feedbackAvatar} 
+                          />
+                          <View>
+                            <Text style={styles.feedbackName}>
+                              {feedback.anonymous 
+                                ? "Anonymous" 
+                                : ((feedback.beneficiaryId && typeof feedback.beneficiaryId === 'object' && feedback.beneficiaryId.name) 
+                                    ? feedback.beneficiaryId.name 
+                                    : "User")}
+                            </Text>
+                            <Text style={styles.feedbackDate}>
+                              {new Date(feedback.createdAt).toLocaleDateString()}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.ratingContainer}>
+                          {Array(5).fill(0).map((_, i) => (
+                            <MaterialCommunityIcons 
+                              key={i}
+                              name={i < feedback.rating ? "star" : "star-outline"}
+                              size={16}
+                              color={i < feedback.rating ? "#FFC107" : "#CBD5E0"}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                      {feedback.comment ? (
+                        <Text style={styles.feedbackComment}>{feedback.comment}</Text>
+                      ) : null}
+                    </Card.Content>
+                  </Card>
+                ))
+              )}
+
+              <Button
+                mode="contained"
+                onPress={() => setFeedbackModalVisible(true)}
+                style={[styles.actionBtn, { marginTop: 16 }]}
+              >
+                Give Feedback
+              </Button>
+            </View>
+
             <Button mode="text" onPress={() => setFullDetailsVisible(false)} style={{ marginTop: 12 }}>
               Close
             </Button>
 
             <View style={{ height: 100 }} />
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* Feedback modal */}
+      <Modal visible={feedbackModalVisible} animationType="slide" onRequestClose={() => setFeedbackModalVisible(false)}>
+        <SafeAreaView style={styles.modalContainer}>
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <View style={styles.handle} />
+            <Text style={styles.modalTitle}>Give Feedback</Text>
+            <Text style={styles.modalSubtitle}>{selectedNgo?.name}</Text>
+
+            <View style={{ marginTop: 12, width: '100%' }}>
+              <Text style={{ marginBottom: 6, fontWeight: '600' }}>Rating (1-5)</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[1,2,3,4,5].map((n) => (
+                  <TouchableOpacity key={n} onPress={() => setFeedbackRating(n)} style={{ padding: 8, backgroundColor: feedbackRating === n ? '#FF8A50' : '#F0F4F8', borderRadius: 6 }}>
+                    <Text style={{ color: feedbackRating === n ? '#fff' : '#333' }}>{n}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TextInput
+                label="Comment (optional)"
+                value={feedbackComment}
+                onChangeText={setFeedbackComment}
+                mode="outlined"
+                multiline
+                numberOfLines={4}
+                style={{ marginTop: 12 }}
+              />
+
+              <Button mode="contained" loading={submittingFeedback} onPress={submitFeedback} style={{ marginTop: 12 }}>
+                Submit Feedback
+              </Button>
+
+              <Button mode="text" onPress={() => setFeedbackModalVisible(false)} style={{ marginTop: 8 }}>
+                Cancel
+              </Button>
+            </View>
           </ScrollView>
         </SafeAreaView>
       </Modal>
@@ -341,4 +614,83 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '600', color: '#2D3748', marginBottom: 6 },
   sectionText: { fontSize: 14, color: '#4A5568' },
   actionBtn: { width: '100%', marginTop: 12, backgroundColor: '#FF8A50' },
+
+  // Feedback modal specific styles
+  ratingContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 12 },
+  ratingButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF8A50',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 4,
+  },
+  ratingButtonSelected: {
+    backgroundColor: '#FF8A50',
+  },
+  ratingText: {
+    color: '#2D3748',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+
+  // New styles for feedback section in modal
+  feedbackSection: {
+    width: '100%',
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 12,
+  },
+  feedbackItem: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F7FAFC',
+    marginBottom: 12,
+  },
+  feedbackRating: {
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  feedbackComment: {
+    color: '#4A5568',
+  },
+
+  // Additional styles for feedback & reviews section
+  feedbackCard: {
+    marginBottom: 12,
+    borderRadius: 8,
+    overflow: 'hidden',
+    elevation: 2,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  feedbackUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  feedbackAvatar: {
+    backgroundColor: '#FF8A50',
+    marginRight: 8,
+  },
+  feedbackName: {
+    fontWeight: '600',
+    color: '#2D3748',
+  },
+  feedbackDate: {
+    fontSize: 12,
+    color: '#A0AEC0',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#718096',
+    textAlign: 'center',
+    marginVertical: 12,
+  },
 });

@@ -248,7 +248,9 @@ export default function BeneficiaryDashboard() {
   const handlePress = (fp: FoodPoint) => {
     // Navigate to map with coordinates if available, otherwise to a detail screen (not implemented)
     if (fp.coordinates) {
-      router.push(`/beneficiary/map?lat=${fp.coordinates.latitude}&lng=${fp.coordinates.longitude}&id=${fp.id}`);
+      // add a timestamp to force query-change even for same id (resets auto-pan each tap)
+      const ts = Date.now();
+      router.push(`/beneficiary/map?lat=${fp.coordinates.latitude}&lng=${fp.coordinates.longitude}&id=${fp.id}&ts=${ts}`);
     } else {
       Alert.alert('Info', 'Location details not available for this food point.');
     }

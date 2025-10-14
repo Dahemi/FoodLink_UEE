@@ -82,6 +82,7 @@ export * from './PickupEvent';
 export * from './Message';
 export * from './Feedback';
 export * from './Notification';
+export { BeneficiaryNotificationModel } from './BeneficiaryNotification';
 
 /**
  * FoodLink Database Schema Overview

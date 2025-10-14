@@ -195,6 +195,7 @@ export const NGODonationApi = {
   ): Promise<DonationResponse> {
     console.log(`Expressing interest in donation ${donationId}`);
     
+    // First express interest through the donations API
     const response = await httpWithNGOAuth<DonationResponse>(
       `/api/donations/${donationId}/interest`,
       {
@@ -203,7 +204,22 @@ export const NGODonationApi = {
       }
     );
     
-    console.log('Interest expressed successfully, donation status:', response.status);
+    // Then create accepted donation record
+    try {
+      await httpWithNGOAuth(
+        '/api/accepted-donations/from-interest',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            donationId: donationId,
+            donorId: response.donorId._id || response.donorId
+          }),
+        }
+      );
+    } catch (err) {
+      console.error('Failed to create accepted donation record:', err);
+    }
+    
     return response;
   },
 };

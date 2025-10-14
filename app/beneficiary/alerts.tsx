@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-    View,
-    Text,
-    ScrollView,
-    RefreshControl,
-    StyleSheet,
-    TouchableOpacity,
-    Dimensions,
-    Alert,
+    View, Text, ScrollView, RefreshControl, 
+    StyleSheet, TouchableOpacity, Dimensions, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Chip, IconButton } from 'react-native-paper';
 import { useRouter } from 'expo-router';
+import { NotificationApi } from '../../services/notificationApi';
+import { useBeneficiaryAuth } from '../../context/BeneficiaryAuthContext';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 const { width } = Dimensions.get('window');
 
@@ -20,80 +17,164 @@ interface AlertItem {
     title: string;
     shortText?: string;
     time: string;
-    type: 'donation' | 'task' | 'system' | 'general';
-    read?: boolean;
+    type: string;
+    raw?: any;
 }
-
-const EXAMPLE_ALERTS: AlertItem[] = [
-    { id: 'a1', title: 'New Donation Nearby', shortText: 'Fresh meals available 0.8 mi away', time: '10m ago', type: 'donation', read: false },
-    { id: 'a2', title: 'Pickup Reminder', shortText: 'Your scheduled pickup at 3:00 PM', time: '1h ago', type: 'task', read: false },
-    { id: 'a3', title: 'System Notice', shortText: 'Maintenance tonight 11PM - 12AM', time: 'Yesterday', type: 'system', read: true },
-];
 
 export default function BeneficiaryAlerts() {
     const router = useRouter();
     const [alerts, setAlerts] = useState<AlertItem[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    // Load notifications from server
+    const loadAlerts = async () => {
+        try {
+            setLoading(true);
+            const notifications = await NotificationApi.getAllBeneficiaryNotifications();
+            console.log('Received notifications:', notifications); // Debug log
+
+            // Transform notifications to AlertItem format
+            const transformed: AlertItem[] = notifications.map(notification => ({
+                id: notification._id || String(Math.random()),
+                title: notification.title,
+                shortText: notification.body,
+                time: formatTime(notification.createdAt || new Date()),
+                type: 'distribution', // Default type for food distribution notifications
+                raw: notification
+            }));
+
+            setAlerts(transformed);
+        } catch (err) {
+            console.error('Failed to load notifications:', err);
+            // Set empty array to avoid showing stale data
+            setAlerts([]);
+            Alert.alert('Error', 'Unable to load notifications. Please try again later.');
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
 
     useEffect(() => {
-        // Load real alerts from API when available. For now use example data.
-        setAlerts(EXAMPLE_ALERTS);
+        loadAlerts();
     }, []);
+
+    const formatTime = (date: string | Date) => {
+        const now = new Date();
+        const notifDate = new Date(date);
+        const diff = now.getTime() - notifDate.getTime();
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days === 1) return 'Yesterday';
+        return notifDate.toLocaleDateString();
+    };
 
     const onRefresh = async () => {
         setRefreshing(true);
-        // TODO: replace with real fetch call
-        setTimeout(() => {
-            setAlerts(EXAMPLE_ALERTS);
-            setRefreshing(false);
-        }, 800);
+        await loadAlerts();
+        setRefreshing(false);
     };
 
-    const openAlert = (item: AlertItem) => {
-        // If you have an alert details page, navigate there.
-        // e.g. router.push(`/beneficiary/alert-details?id=${item.id}`)
-        Alert.alert(item.title, item.shortText || '');
+    const openAlert = async (item: AlertItem) => {
+        try {
+            // Handle donation notifications by navigating to map
+            if (item.raw?.type === 'donation_available' && item.raw.data?.location) {
+                const { location } = item.raw.data;
+                router.push(`/beneficiary/map?lat=${location.coordinates.latitude}&lng=${location.coordinates.longitude}&id=${item.raw.data.ngoId}`);
+            } else {
+                Alert.alert(item.title, item.shortText || '');
+            }
+        } catch (err) {
+            console.error('Failed to handle notification:', err);
+        }
     };
+
+    const clearAll = () => {
+        Alert.alert(
+            'Clear All Alerts',
+            'Are you sure you want to remove all alerts?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await NotificationApi.deleteAllForRecipient('beneficiary');
+                            setAlerts([]);
+                        } catch (err) {
+                            console.error('Failed to clear notifications:', err);
+                            Alert.alert('Error', 'Failed to clear notifications');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    if (loading) {
+        return <LoadingSpinner message="Loading notifications..." />;
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <View style={styles.header}>
                 <Text style={styles.title}>Alerts</Text>
-                <IconButton
-                    icon="bell-outline"
-                    size={22}
-                    onPress={() => Alert.alert('Notifications', 'Manage alert settings in Profile')}
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <IconButton
+                        icon="trash-can-outline"
+                        size={22}
+                        onPress={clearAll}
+                        iconColor="#F56565"
+                    />
+                </View>
             </View>
 
             <ScrollView
                 contentContainerStyle={styles.list}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl 
+                        refreshing={refreshing} 
+                        onRefresh={onRefresh}
+                        colors={['#FF8A50']}
+                    />
+                }
             >
-                {alerts.map((a) => (
+                {alerts.map((alert) => (
                     <TouchableOpacity
-                        key={a.id}
+                        key={alert.id}
                         activeOpacity={0.85}
-                        onPress={() => openAlert(a)}
+                        onPress={() => openAlert(alert)}
                         style={styles.touchable}
                     >
-                        <Card style={[styles.card, a.read ? styles.readCard : null]}>
+                        <Card style={[styles.card]}>
                             <View style={styles.cardContent}>
                                 <View style={styles.left}>
                                     <Text style={styles.emoji}>
-                                        {a.type === 'donation' ? '📦' : a.type === 'task' ? '📅' : a.type === 'system' ? '⚙️' : '🔔'}
+                                        {getEmojiForType(alert.type)}
                                     </Text>
-
                                     <View style={styles.info}>
-                                        <Text style={styles.alertTitle}>{a.title}</Text>
-                                        {a.shortText ? <Text style={styles.subtitle}>{a.shortText}</Text> : null}
+                                        <Text style={[
+                                            styles.alertTitle,
+                                        ]}>
+                                            {alert.title}
+                                        </Text>
+                                        {alert.shortText ? (
+                                            <Text style={styles.subtitle}>
+                                                {alert.shortText}
+                                            </Text>
+                                        ) : null}
                                     </View>
                                 </View>
-
                                 <View style={styles.right}>
-                                    <Text style={styles.time}>{a.time}</Text>
+                                    <Text style={styles.time}>{alert.time}</Text>
                                     <Chip style={styles.chip} textStyle={styles.chipText}>
-                                        {a.type}
+                                        {formatType(alert.type)}
                                     </Chip>
                                 </View>
                             </View>
@@ -103,7 +184,9 @@ export default function BeneficiaryAlerts() {
 
                 {alerts.length === 0 && (
                     <View style={styles.empty}>
-                        <Text style={styles.emptyText}>No alerts right now.</Text>
+                        <Text style={styles.emptyText}>
+                            No notifications yet
+                        </Text>
                     </View>
                 )}
 
@@ -112,6 +195,21 @@ export default function BeneficiaryAlerts() {
         </SafeAreaView>
     );
 }
+
+// Helper functions
+const getEmojiForType = (type: string) => {
+    switch (type) {
+        case 'donation_available': return '🍽️';
+        case 'distribution': return '🍽️';
+        case 'reminder': return '⏰';
+        case 'system': return '⚙️';
+        default: return '🔔';
+    }
+};
+
+const formatType = (type: string) => {
+    return type.charAt(0).toUpperCase() + type.slice(1);
+};
 
 const styles = StyleSheet.create({
     container: {
@@ -148,10 +246,6 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         backgroundColor: '#FFF8F0',
         elevation: 2,
-    },
-
-    readCard: {
-        backgroundColor: '#F7FAFC',
     },
 
     cardContent: {

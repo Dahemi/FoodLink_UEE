@@ -15,6 +15,8 @@ interface BeneficiaryAuthContextType {
   login: (credentials: BeneficiaryLoginCredentials) => Promise<void>;
   register: (data: BeneficiaryRegisterData) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (data: Partial<BeneficiaryUser>) => Promise<void>;
+  clearError: () => void;
 }
 
 const BeneficiaryAuthContext = createContext<BeneficiaryAuthContextType | undefined>(undefined);
@@ -165,8 +167,47 @@ export const BeneficiaryAuthProvider: React.FC<{ children: ReactNode }> = ({ chi
     }
   };
 
+  const updateProfile = async (data: Partial<BeneficiaryUser>): Promise<void> => {
+    try {
+      setAuthState(prev => ({ ...prev, loading: true, error: null }));
+      
+      const updatedUser = await BeneficiaryAuthApi.updateProfile(data);
+      
+      await AsyncStorage.setItem(BENEFICIARY_USER_KEY, JSON.stringify(updatedUser));
+      
+      setAuthState(prev => ({
+        ...prev,
+        user: updatedUser,
+        loading: false,
+        error: null
+      }));
+    } catch (error) {
+      console.error('Profile update error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update profile';
+      setAuthState(prev => ({
+        ...prev,
+        loading: false,
+        error: errorMessage
+      }));
+      throw error;
+    }
+  };
+
+  const clearError = () => {
+    setAuthState(prev => ({ ...prev, error: null }));
+  };
+
   return (
-    <BeneficiaryAuthContext.Provider value={{ authState, login, register, logout }}>
+    <BeneficiaryAuthContext.Provider
+      value={{
+        authState,
+        login,
+        register,
+        logout,
+        updateProfile,
+        clearError
+      }}
+    >
       {children}
     </BeneficiaryAuthContext.Provider>
   );

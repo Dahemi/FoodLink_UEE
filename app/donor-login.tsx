@@ -9,6 +9,7 @@ import {
   Platform,
   TouchableOpacity,
   Dimensions,
+  Image,
 } from 'react-native';
 import { TextInput, Button, Card } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -138,9 +139,11 @@ export default function DonorLoginScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
-            <View style={styles.logoCircle1} />
-            <View style={styles.logoCircle2} />
-            <Text style={styles.logoText}>FoodLink</Text>
+            <Image
+              source={require('../assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>
             {isLogin ? 'Welcome Back, Donor!' : 'Become a Donor'}
@@ -447,7 +450,7 @@ export default function DonorLoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7FAFC',
+    backgroundColor: '#FFFFFF',
   },
   scrollView: {
     flex: 1,
@@ -465,32 +468,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  logoCircle1: {
-    position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFB380',
-    top: 10,
-    left: 15,
-    transform: [{ rotate: '-15deg' }],
-  },
-  logoCircle2: {
-    position: 'absolute',
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    backgroundColor: '#FF8A50',
-    top: 15,
-    right: 10,
-    transform: [{ rotate: '20deg' }],
-  },
-  logoText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginTop: 50,
-    letterSpacing: 0.5,
+  logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
