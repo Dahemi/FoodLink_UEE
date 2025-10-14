@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card, Button, TextInput, Divider, Avatar, Switch, Chip } from 'react-native-paper';
@@ -379,79 +380,105 @@ export default function NGOProfile() {
     </Card>
   );
 
+  const handleNotificationSettings = () => {
+    Alert.alert(
+      'Notification Settings',
+      'Choose your notification preferences',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Update',
+          onPress: async () => {
+            try {
+              // Here you would typically save notification settings to backend
+              Alert.alert('Success', 'Notification settings updated successfully');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to update notification settings');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderNotificationSettings = () => (
     <Card style={styles.sectionCard}>
-      <Card.Content>
-        <Text style={styles.sectionTitle}>Notification Settings</Text>
-        
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Donation Alerts</Text>
-            <Text style={styles.settingDescription}>Get notified when new donations are available</Text>
+      <TouchableOpacity onPress={handleNotificationSettings}>
+        <Card.Content>
+          <Text style={styles.sectionTitle}>Notification Settings</Text>
+          
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Donation Alerts</Text>
+              <Text style={styles.settingDescription}>Get notified when new donations are available</Text>
+            </View>
+            <Switch
+              value={notifications.donationAlerts}
+              onValueChange={(value) => setNotifications(prev => ({ ...prev, donationAlerts: value }))}
+              color="#FF8A50"
+            />
           </View>
-          <Switch
-            value={notifications.donationAlerts}
-            onValueChange={(value) => setNotifications(prev => ({ ...prev, donationAlerts: value }))}
-            color="#FF8A50"
-          />
-        </View>
 
-        <Divider style={styles.divider} />
+          <Divider style={styles.divider} />
 
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Volunteer Updates</Text>
-            <Text style={styles.settingDescription}>Updates about volunteer assignments and activities</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Volunteer Updates</Text>
+              <Text style={styles.settingDescription}>Updates about volunteer assignments and activities</Text>
+            </View>
+            <Switch
+              value={notifications.volunteerUpdates}
+              onValueChange={(value) => setNotifications(prev => ({ ...prev, volunteerUpdates: value }))}
+              color="#FF8A50"
+            />
           </View>
-          <Switch
-            value={notifications.volunteerUpdates}
-            onValueChange={(value) => setNotifications(prev => ({ ...prev, volunteerUpdates: value }))}
-            color="#FF8A50"
-          />
-        </View>
 
-        <Divider style={styles.divider} />
+          <Divider style={styles.divider} />
 
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Requirement Updates</Text>
-            <Text style={styles.settingDescription}>Status updates on your food requirements</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Requirement Updates</Text>
+              <Text style={styles.settingDescription}>Status updates on your food requirements</Text>
+            </View>
+            <Switch
+              value={notifications.requirementUpdates}
+              onValueChange={(value) => setNotifications(prev => ({ ...prev, requirementUpdates: value }))}
+              color="#FF8A50"
+            />
           </View>
-          <Switch
-            value={notifications.requirementUpdates}
-            onValueChange={(value) => setNotifications(prev => ({ ...prev, requirementUpdates: value }))}
-            color="#FF8A50"
-          />
-        </View>
 
-        <Divider style={styles.divider} />
+          <Divider style={styles.divider} />
 
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Email Notifications</Text>
-            <Text style={styles.settingDescription}>Receive notifications via email</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Email Notifications</Text>
+              <Text style={styles.settingDescription}>Receive notifications via email</Text>
+            </View>
+            <Switch
+              value={notifications.emailNotifications}
+              onValueChange={(value) => setNotifications(prev => ({ ...prev, emailNotifications: value }))}
+              color="#FF8A50"
+            />
           </View>
-          <Switch
-            value={notifications.emailNotifications}
-            onValueChange={(value) => setNotifications(prev => ({ ...prev, emailNotifications: value }))}
-            color="#FF8A50"
-          />
-        </View>
 
-        <Divider style={styles.divider} />
+          <Divider style={styles.divider} />
 
-        <View style={styles.settingRow}>
-          <View style={styles.settingInfo}>
-            <Text style={styles.settingLabel}>Urgent Alerts</Text>
-            <Text style={styles.settingDescription}>Push notifications for urgent requests</Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Urgent Alerts</Text>
+              <Text style={styles.settingDescription}>Push notifications for urgent requests</Text>
+            </View>
+            <Switch
+              value={notifications.urgentAlerts}
+              onValueChange={(value) => setNotifications(prev => ({ ...prev, urgentAlerts: value }))}
+              color="#FF8A50"
+            />
           </View>
-          <Switch
-            value={notifications.urgentAlerts}
-            onValueChange={(value) => setNotifications(prev => ({ ...prev, urgentAlerts: value }))}
-            color="#FF8A50"
-          />
-        </View>
-      </Card.Content>
+        </Card.Content>
+      </TouchableOpacity>
     </Card>
   );
 
