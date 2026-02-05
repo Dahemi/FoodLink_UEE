@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useVolunteerTasks } from '../../hooks/useVolunteerTasks';
 import { useVolunteerNotifications } from '../../hooks/useVolunteerNotifications';
 import { useAuth } from '../../context/AuthContext';
+import { VolunteerApi } from '../../services/volunteerApi';
 import TaskList from '../../components/volunteer/TaskList';
 import StatsCard from '../../components/volunteer/StatsCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
@@ -33,6 +34,7 @@ export default function VolunteerDashboard() {
   
   const {
     tasks,
+    claimedDonations,
     stats,
     loading,
     error,
@@ -48,6 +50,13 @@ export default function VolunteerDashboard() {
     acceptedTasks,
     inProgressTasks,
   } = useVolunteerTasks();
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Dashboard - Tasks:', tasks.length);
+    console.log('Dashboard - Claimed Donations:', claimedDonations.length);
+    console.log('Dashboard - Claimed Donations Data:', claimedDonations);
+  }, [tasks, claimedDonations]);
 
   const { isInitialized: notificationsInitialized } = useVolunteerNotifications();
 
@@ -140,6 +149,34 @@ export default function VolunteerDashboard() {
     );
   };
 
+  const handleAcceptDonation = async (donationId: string) => {
+    Alert.alert(
+      'Accept Pickup',
+      'Are you ready to pick up this donation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Accept', 
+          onPress: async () => {
+            try {
+              if (VolunteerApi.isEnabled()) {
+                await VolunteerApi.acceptDonation(donationId);
+                Alert.alert('Success', 'Pickup accepted! The task has been added to your dashboard.');
+                // Refresh the tasks to show the new task
+                await refreshTasks();
+              } else {
+                Alert.alert('Success', 'Pickup accepted! You will be contacted with pickup details.');
+              }
+            } catch (error) {
+              console.error('Error accepting donation:', error);
+              Alert.alert('Error', 'Failed to accept pickup. Please try again.');
+            }
+          }
+        },
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
@@ -163,13 +200,16 @@ export default function VolunteerDashboard() {
   };
 
   const getDisplayTasks = () => {
+    // Combine regular tasks with claimed donations
+    const allTasks = [...tasks, ...claimedDonations];
+    
     switch (activeTab) {
       case 'urgent':
         return urgentTasks;
       case 'today':
         return todaysTasks;
       default:
-        return tasks.filter(task => task.status !== 'completed' && task.status !== 'cancelled');
+        return allTasks.filter(task => task.status !== 'completed' && task.status !== 'cancelled');
     }
   };
 
@@ -378,17 +418,23 @@ export default function VolunteerDashboard() {
         {/* Task List - Now part of the main scroll */}
         <View style={styles.taskListContainer}>
           <TaskList
-            tasks={getDisplayTasks()}
+            tasks={tasks}
+            claimedDonations={claimedDonations}
             loading={false}
             refreshing={refreshing}
             error={error}
             scrollable={false} // Disable internal scrolling since we're in a ScrollView
             onTaskPress={handleTaskPress}
+            onDonationPress={(donation) => {
+              // Handle donation press - could navigate to donation details
+              console.log('Donation pressed:', donation);
+            }}
             onRefresh={refreshTasks}
             onAcceptTask={handleAcceptTask}
             onStartTask={handleStartTask}
             onCompleteTask={handleCompleteTask}
             onCancelTask={handleCancelTask}
+            onAcceptDonation={handleAcceptDonation}
             emptyMessage={getEmptyMessage()}
             emptyIcon={getEmptyIcon()}
           />

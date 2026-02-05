@@ -6,6 +6,7 @@ import { NotificationService } from '../services/notificationService';
 
 export function useVolunteerTasks() {
   const [tasks, setTasks] = useState<VolunteerTask[]>([]);
+  const [claimedDonations, setClaimedDonations] = useState<any[]>([]);
   const [stats, setStats] = useState<VolunteerStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,11 +20,19 @@ export function useVolunteerTasks() {
       
       let savedTasks: VolunteerTask[] = [];
       let savedStats: VolunteerStats | null = null;
+      let savedClaimedDonations: any[] = [];
 
       if (VolunteerApi.isEnabled()) {
-        [savedTasks, savedStats] = await Promise.all([
+        [savedTasks, savedStats, savedClaimedDonations] = await Promise.all([
           VolunteerApi.getTasks(),
           VolunteerApi.getStats(),
+          VolunteerApi.getClaimedDonations().then(result => {
+            console.log('Claimed donations API response:', result);
+            return result.donations;
+          }).catch((error) => {
+            console.error('Error fetching claimed donations:', error);
+            return [];
+          }),
         ]);
       } else {
         [savedTasks, savedStats] = await Promise.all([
@@ -34,6 +43,11 @@ export function useVolunteerTasks() {
       
       setTasks(savedTasks);
       setStats(savedStats);
+      setClaimedDonations(savedClaimedDonations);
+      
+      console.log('Loaded tasks:', savedTasks.length);
+      console.log('Loaded claimed donations:', savedClaimedDonations.length);
+      console.log('Claimed donations data:', savedClaimedDonations);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load tasks';
       setError(errorMessage);
@@ -212,6 +226,7 @@ export function useVolunteerTasks() {
   return {
     // Data
     tasks,
+    claimedDonations,
     stats,
     
     // Loading states

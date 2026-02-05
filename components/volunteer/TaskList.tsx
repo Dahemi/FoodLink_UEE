@@ -2,10 +2,12 @@ import React from 'react';
 import { FlatList, View, Text, StyleSheet, RefreshControl } from 'react-native';
 import { VolunteerTask, TaskFilter } from '../../types/volunteer';
 import TaskCard from './TaskCard';
+import ClaimedDonationCard from './ClaimedDonationCard';
 import LoadingSpinner from '../LoadingSpinner';
 
 interface TaskListProps {
   tasks: VolunteerTask[];
+  claimedDonations?: any[];
   loading?: boolean;
   refreshing?: boolean;
   error?: string | null;
@@ -13,17 +15,20 @@ interface TaskListProps {
   showActions?: boolean;
   scrollable?: boolean; // New prop to control scrolling behavior
   onTaskPress: (task: VolunteerTask) => void;
+  onDonationPress?: (donation: any) => void;
   onRefresh?: () => void;
   onAcceptTask?: (taskId: string) => void;
   onStartTask?: (taskId: string) => void;
   onCompleteTask?: (taskId: string) => void;
   onCancelTask?: (taskId: string) => void;
+  onAcceptDonation?: (donationId: string) => void;
   emptyMessage?: string;
   emptyIcon?: string;
 }
 
 export default function TaskList({
   tasks,
+  claimedDonations = [],
   loading = false,
   refreshing = false,
   error = null,
@@ -31,11 +36,13 @@ export default function TaskList({
   showActions = true,
   scrollable = true, // Default to scrollable for backward compatibility
   onTaskPress,
+  onDonationPress,
   onRefresh,
   onAcceptTask,
   onStartTask,
   onCompleteTask,
   onCancelTask,
+  onAcceptDonation,
   emptyMessage = "No tasks available",
   emptyIcon = "📋"
 }: TaskListProps) {
@@ -65,30 +72,57 @@ export default function TaskList({
   };
 
   const filteredTasks = getFilteredTasks();
+  
+  // Combine tasks and claimed donations
+  const allItems = [
+    ...filteredTasks.map(task => ({ type: 'task', data: task })),
+    ...claimedDonations.map(donation => ({ type: 'donation', data: donation }))
+  ];
 
-  // Sort tasks by priority and pickup time
-  const sortedTasks = filteredTasks.sort((a, b) => {
+  // Sort all items by priority and pickup time
+  const sortedItems = allItems.sort((a, b) => {
     // First sort by priority
     const priorityOrder = { high: 3, medium: 2, low: 1 };
-    const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+    const aPriority = a.data.priority || 'medium';
+    const bPriority = b.data.priority || 'medium';
+    const priorityDiff = priorityOrder[bPriority] - priorityOrder[aPriority];
     
     if (priorityDiff !== 0) return priorityDiff;
     
     // Then sort by pickup time
-    return new Date(a.pickupTime).getTime() - new Date(b.pickupTime).getTime();
+    const aTime = a.data.pickupTime || a.data.pickupSchedule?.availableFrom;
+    const bTime = b.data.pickupTime || b.data.pickupSchedule?.availableFrom;
+    if (aTime && bTime) {
+      return new Date(aTime).getTime() - new Date(bTime).getTime();
+    }
+    return 0;
   });
 
-  const renderTask = ({ item }: { item: VolunteerTask }) => (
-    <TaskCard
-      task={item}
-      onPress={() => onTaskPress(item)}
-      onAccept={onAcceptTask}
-      onStart={onStartTask}
-      onComplete={onCompleteTask}
-      onCancel={onCancelTask}
-      showActions={showActions}
-    />
-  );
+  const renderItem = ({ item }: { item: { type: string; data: any } }) => {
+    if (item.type === 'task') {
+      return (
+        <TaskCard
+          task={item.data}
+          onPress={() => onTaskPress(item.data)}
+          onAccept={onAcceptTask}
+          onStart={onStartTask}
+          onComplete={onCompleteTask}
+          onCancel={onCancelTask}
+          showActions={showActions}
+        />
+      );
+    } else if (item.type === 'donation') {
+      return (
+        <ClaimedDonationCard
+          donation={item.data}
+          onPress={() => onDonationPress?.(item.data)}
+          onAccept={onAcceptDonation}
+          showActions={showActions}
+        />
+      );
+    }
+    return null;
+  };
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -124,13 +158,13 @@ export default function TaskList({
     return (
       <View style={styles.container}>
         <FlatList
-          data={sortedTasks}
-          renderItem={renderTask}
-          keyExtractor={(item) => item.id}
+          data={sortedItems}
+          renderItem={renderItem}
+          keyExtractor={(item) => `${item.type}-${item.data.id}`}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             styles.listContainer,
-            sortedTasks.length === 0 && styles.emptyListContainer
+            sortedItems.length === 0 && styles.emptyListContainer
           ]}
           refreshControl={
             onRefresh ? (
@@ -154,14 +188,14 @@ export default function TaskList({
     <View style={styles.container}>
       <View style={[
         styles.listContainer,
-        sortedTasks.length === 0 && styles.emptyListContainer
+        sortedItems.length === 0 && styles.emptyListContainer
       ]}>
-        {sortedTasks.length === 0 ? (
+        {sortedItems.length === 0 ? (
           renderEmpty()
         ) : (
-          sortedTasks.map((task) => (
-            <View key={task.id}>
-              {renderTask({ item: task })}
+          sortedItems.map((item) => (
+            <View key={`${item.type}-${item.data.id}`}>
+              {renderItem({ item })}
             </View>
           ))
         )}

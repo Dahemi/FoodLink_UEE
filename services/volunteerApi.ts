@@ -21,42 +21,92 @@ async function http<T>(path: string, options?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+async function httpWithAuth<T>(path: string, options?: RequestInit): Promise<T> {
+  const base = getBaseUrl();
+  if (!base) throw new Error('API URL not configured');
+  
+  // Get token from storage
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  const authData = await AsyncStorage.getItem('@volunteer_auth');
+  const token = authData ? JSON.parse(authData).token : null;
+  
+  if (!token) throw new Error('No authentication token found');
+  
+  const res = await fetch(`${base}${path}`, {
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...(options?.headers || {}) 
+    },
+    ...options,
+  });
+  
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const errorData = text ? JSON.parse(text) : {};
+    throw new Error(errorData.message || `Request failed (${res.status}): ${res.statusText}`);
+  }
+  
+  return (await res.json()) as T;
+}
+
 export const VolunteerApi = {
   isEnabled(): boolean {
     return !!getBaseUrl();
   },
 
   async getTasks(): Promise<VolunteerTask[]> {
-    return await http<VolunteerTask[]>('/api/volunteer/tasks');
+    return await httpWithAuth<VolunteerTask[]>('/api/volunteer/tasks');
   },
 
   async getTask(taskId: string): Promise<VolunteerTask> {
-    return await http<VolunteerTask>(`/api/volunteer/tasks/${taskId}`);
+    return await httpWithAuth<VolunteerTask>(`/api/volunteer/tasks/${taskId}`);
   },
 
   async createTask(task: Omit<VolunteerTask, 'id'>): Promise<VolunteerTask> {
-    return await http<VolunteerTask>('/api/volunteer/tasks', {
+    return await httpWithAuth<VolunteerTask>('/api/volunteer/tasks', {
       method: 'POST',
       body: JSON.stringify(task),
     });
   },
 
   async updateTaskStatus(taskId: string, status: VolunteerTask['status']): Promise<VolunteerTask> {
-    return await http<VolunteerTask>(`/api/volunteer/tasks/${taskId}/status`, {
+    return await httpWithAuth<VolunteerTask>(`/api/volunteer/tasks/${taskId}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
   },
 
   async rescheduleTask(taskId: string, pickupTime: string, deliveryTime?: string): Promise<VolunteerTask> {
-    return await http<VolunteerTask>(`/api/volunteer/tasks/${taskId}/reschedule`, {
+    return await httpWithAuth<VolunteerTask>(`/api/volunteer/tasks/${taskId}/reschedule`, {
       method: 'PATCH',
       body: JSON.stringify({ pickupTime, deliveryTime }),
     });
   },
 
   async getStats(): Promise<VolunteerStats> {
-    return await http<VolunteerStats>('/api/volunteer/stats');
+    return await httpWithAuth<VolunteerStats>('/api/volunteer/stats');
+  },
+
+  async getClaimedDonations(page: number = 1, limit: number = 20): Promise<{
+    donations: any[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    const response = await httpWithAuth<any>(`/api/volunteer/claimed-donations?page=${page}&limit=${limit}`);
+    // The backend returns { success: true, data: { donations: [], pagination: {} } }
+    return response.data || response;
+  },
+
+  async acceptDonation(donationId: string): Promise<any> {
+    return await httpWithAuth<any>('/api/volunteer/accept-donation', {
+      method: 'POST',
+      body: JSON.stringify({ donationId }),
+    });
   },
 };
 

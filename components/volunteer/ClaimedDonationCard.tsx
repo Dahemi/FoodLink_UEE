@@ -1,31 +1,25 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Card, Button, Chip, IconButton } from 'react-native-paper';
-import { VolunteerTask } from '../../types/volunteer';
 import { NavigationService } from '../../services/navigationService';
 
-interface TaskCardProps {
-  task: VolunteerTask;
+interface ClaimedDonationCardProps {
+  donation: any;
   onPress: () => void;
-  onAccept?: (taskId: string) => void;
-  onStart?: (taskId: string) => void;
-  onComplete?: (taskId: string) => void;
-  onCancel?: (taskId: string) => void;
+  onAccept?: (donationId: string) => void;
   showActions?: boolean;
 }
 
-export default function TaskCard({ 
-  task, 
+export default function ClaimedDonationCard({ 
+  donation, 
   onPress, 
-  onAccept, 
-  onStart, 
-  onComplete, 
-  onCancel,
+  onAccept,
   showActions = true 
-}: TaskCardProps) {
+}: ClaimedDonationCardProps) {
   
-  const getPriorityColor = (priority: VolunteerTask['priority']) => {
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
+      case 'urgent': return '#F44336';
       case 'high': return '#F44336';
       case 'medium': return '#FF9800';
       case 'low': return '#4CAF50';
@@ -33,29 +27,28 @@ export default function TaskCard({
     }
   };
 
-  const getStatusColor = (status: VolunteerTask['status']) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'assigned': return '#2196F3';
-      case 'accepted': return '#FF9800';
-      case 'in_progress': return '#9C27B0';
-      case 'completed': return '#4CAF50';
-      case 'cancelled': return '#F44336';
+      case 'claimed': return '#2196F3';
+      case 'pickup_scheduled': return '#FF9800';
+      case 'picked_up': return '#9C27B0';
+      case 'delivered': return '#4CAF50';
       default: return '#9E9E9E';
     }
   };
 
-  const getStatusText = (status: VolunteerTask['status']) => {
+  const getStatusText = (status: string) => {
     switch (status) {
-      case 'assigned': return 'New';
-      case 'accepted': return 'Accepted';
-      case 'in_progress': return 'In Progress';
-      case 'completed': return 'Completed';
-      case 'cancelled': return 'Cancelled';
+      case 'claimed': return 'Ready for Pickup';
+      case 'pickup_scheduled': return 'Scheduled';
+      case 'picked_up': return 'Picked Up';
+      case 'delivered': return 'Delivered';
       default: return status;
     }
   };
 
   const formatTime = (dateString: string) => {
+    if (!dateString) return 'TBD';
     return new Date(dateString).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -64,6 +57,7 @@ export default function TaskCard({
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'TBD';
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -71,7 +65,8 @@ export default function TaskCard({
   };
 
   const isExpiringSoon = () => {
-    const expiryTime = new Date(task.foodDetails.expiryTime);
+    if (!donation.expiryDateTime) return false;
+    const expiryTime = new Date(donation.expiryDateTime);
     const now = new Date();
     const hoursUntilExpiry = (expiryTime.getTime() - now.getTime()) / (1000 * 60 * 60);
     return hoursUntilExpiry <= 2 && hoursUntilExpiry > 0;
@@ -98,60 +93,22 @@ export default function TaskCard({
   const renderActionButtons = () => {
     if (!showActions) return null;
 
-    switch (task.status) {
-      case 'assigned':
-        return (
-          <View style={styles.actionButtons}>
-            <Button 
-              mode="contained" 
-              onPress={() => onAccept?.(task.id)}
-              style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-              labelStyle={styles.actionButtonText}
-            >
-              Accept
-            </Button>
-            <Button 
-              mode="outlined" 
-              onPress={() => onCancel?.(task.id)}
-              style={styles.actionButton}
-              textColor="#F44336"
-            >
-              Decline
-            </Button>
-          </View>
-        );
-      
-      case 'accepted':
-        return (
-          <View style={styles.actionButtons}>
-            <Button 
-              mode="contained" 
-              onPress={() => onStart?.(task.id)}
-              style={[styles.actionButton, { backgroundColor: '#FF9800' }]}
-              labelStyle={styles.actionButtonText}
-            >
-              Start Pickup
-            </Button>
-          </View>
-        );
-      
-      case 'in_progress':
-        return (
-          <View style={styles.actionButtons}>
-            <Button 
-              mode="contained" 
-              onPress={() => onComplete?.(task.id)}
-              style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
-              labelStyle={styles.actionButtonText}
-            >
-              Mark Complete
-            </Button>
-          </View>
-        );
-      
-      default:
-        return null;
+    if (donation.status === 'claimed') {
+      return (
+        <View style={styles.actionButtons}>
+          <Button 
+            mode="contained" 
+            onPress={() => onAccept?.(donation.id)}
+            style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+            labelStyle={styles.actionButtonText}
+          >
+            Accept Pickup
+          </Button>
+        </View>
+      );
     }
+    
+    return null;
   };
 
   return (
@@ -160,48 +117,72 @@ export default function TaskCard({
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.donorName}>{task.donorInfo.name}</Text>
-            <Text style={styles.route}>→ {task.ngoInfo.name}</Text>
+            <Text style={styles.donorName}>{donation.donorInfo?.name || 'Unknown Donor'}</Text>
+            <Text style={styles.route}>→ {donation.ngoInfo?.name || 'Unknown NGO'}</Text>
           </View>
           <View style={styles.headerRight}>
             <Chip 
               mode="outlined" 
-              textStyle={[styles.priorityText, { color: getPriorityColor(task.priority) }]}
-              style={[styles.priorityChip, { borderColor: getPriorityColor(task.priority) }]}
+              textStyle={[styles.priorityText, { color: getPriorityColor(donation.priority) }]}
+              style={[styles.priorityChip, { borderColor: getPriorityColor(donation.priority), marginBottom: 4 }]}
             >
-              {task.priority.toUpperCase()}
+              {donation.priority?.toUpperCase() || 'MEDIUM'}
             </Chip>
             <Chip 
               mode="flat"
-              textStyle={[styles.statusText, { color: getStatusColor(task.status) }]}
-              style={[styles.statusChip, { backgroundColor: `${getStatusColor(task.status)}20` }]}
+              textStyle={[styles.statusText, { color: getStatusColor(donation.status) }]}
+              style={[styles.statusChip, { backgroundColor: `${getStatusColor(donation.status)}20` }]}
             >
-              {getStatusText(task.status)}
+              {getStatusText(donation.status)}
             </Chip>
           </View>
         </View>
 
         {/* Food Details */}
         <View style={styles.foodDetails}>
-          <Text style={styles.foodType}>📦 {task.foodDetails.type}</Text>
-          <Text style={styles.quantity}>📊 {task.foodDetails.quantity}</Text>
+          <Text style={styles.foodType}>📦 {donation.foodDetails?.type || 'Food'}</Text>
+          <Text style={styles.quantity}>📊 {donation.foodDetails?.quantity || 'Unknown quantity'}</Text>
           {isExpiringSoon() && (
             <Text style={styles.expiryWarning}>⚠️ Expires soon!</Text>
           )}
         </View>
 
-        {/* Time and Location Info */}
+        {/* Pickup and Delivery Addresses */}
+        <View style={styles.addressesContainer}>
+          {/* Pickup Address */}
+          <View style={styles.addressSection}>
+            <Text style={styles.addressLabel}>📍 Pickup from:</Text>
+            <Text style={styles.addressText}>{donation.donorInfo?.address || 'Address not available'}</Text>
+            <Text style={styles.contactText}>Contact: {donation.donorInfo?.contactPerson || 'N/A'} ({donation.donorInfo?.phone || 'N/A'})</Text>
+          </View>
+
+          {/* Delivery Address */}
+          <View style={styles.addressSection}>
+            <Text style={styles.addressLabel}>🏢 Deliver to:</Text>
+            <Text style={styles.addressText}>{donation.ngoInfo?.address || 'Address not available'}</Text>
+            <Text style={styles.contactText}>Contact: {donation.ngoInfo?.contactPerson || 'N/A'} ({donation.ngoInfo?.phone || 'N/A'})</Text>
+          </View>
+        </View>
+
+        {/* Time and Schedule Info */}
         <View style={styles.timeLocationInfo}>
           <View style={styles.timeInfo}>
-            <Text style={styles.timeLabel}>Pickup:</Text>
+            <Text style={styles.timeLabel}>Available:</Text>
             <Text style={styles.timeValue}>
-              {formatDate(task.pickupTime)} at {formatTime(task.pickupTime)}
+              {donation.pickupSchedule?.availableFrom ? 
+                `${formatDate(donation.pickupSchedule.availableFrom)} at ${formatTime(donation.pickupSchedule.availableFrom)}` : 
+                'Check with donor'
+              }
             </Text>
           </View>
-          <View style={styles.locationInfo}>
-            <Text style={styles.distanceText}>📍 {task.distance || 'Calculating...'}</Text>
-            <Text style={styles.durationText}>⏱️ {task.estimatedDuration || 'Est. time'}</Text>
-          </View>
+          {donation.pickupSchedule?.availableUntil && (
+            <View style={styles.timeInfo}>
+              <Text style={styles.timeLabel}>Until:</Text>
+              <Text style={styles.timeValue}>
+                {formatDate(donation.pickupSchedule.availableUntil)} at {formatTime(donation.pickupSchedule.availableUntil)}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Quick Actions */}
@@ -211,28 +192,28 @@ export default function TaskCard({
             size={20}
             iconColor="#4CAF50"
             style={styles.quickActionButton}
-            onPress={() => handleQuickCall(task.donorInfo.phone, 'donor')}
+            onPress={() => handleQuickCall(donation.donorInfo?.phone, 'donor')}
           />
           <IconButton
             icon="map-marker"
             size={20}
             iconColor="#2196F3"
             style={styles.quickActionButton}
-            onPress={() => handleQuickNavigation(task.donorInfo.address, task.donorInfo.name)}
+            onPress={() => handleQuickNavigation(donation.donorInfo?.address, donation.donorInfo?.name)}
           />
           <IconButton
             icon="phone-outline"
             size={20}
             iconColor="#4CAF50"
             style={styles.quickActionButton}
-            onPress={() => handleQuickCall(task.ngoInfo.phone, 'ngo')}
+            onPress={() => handleQuickCall(donation.ngoInfo?.phone, 'ngo')}
           />
           <IconButton
             icon="map-marker-outline"
             size={20}
             iconColor="#2196F3"
             style={styles.quickActionButton}
-            onPress={() => handleQuickNavigation(task.ngoInfo.address, task.ngoInfo.name)}
+            onPress={() => handleQuickNavigation(donation.ngoInfo?.address, donation.ngoInfo?.name)}
           />
         </View>
 
@@ -240,10 +221,10 @@ export default function TaskCard({
         {renderActionButtons()}
 
         {/* Special Instructions */}
-        {task.foodDetails.specialInstructions && (
+        {donation.pickupSchedule?.specialInstructions && (
           <View style={styles.instructionsContainer}>
             <Text style={styles.instructionsLabel}>📝 Instructions:</Text>
-            <Text style={styles.instructionsText}>{task.foodDetails.specialInstructions}</Text>
+            <Text style={styles.instructionsText}>{donation.pickupSchedule.specialInstructions}</Text>
           </View>
         )}
       </View>
@@ -273,11 +254,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: 12,
-    minHeight: 60,
+    minHeight: 65,
   },
   headerLeft: {
     flex: 1,
-    marginRight: 8,
   },
   headerRight: {
     alignItems: 'flex-end',
@@ -298,22 +278,18 @@ const styles = StyleSheet.create({
   priorityChip: {
     height: 28,
     minHeight: 28,
-    paddingVertical: 2,
   },
   priorityText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
-    lineHeight: 14,
   },
   statusChip: {
-    height: 28,
-    minHeight: 28,
-    paddingVertical: 2,
+    height: 30,
+    minHeight: 30,
   },
   statusText: {
     fontSize: 10,
     fontWeight: '600',
-    lineHeight: 14,
   },
   foodDetails: {
     flexDirection: 'row',
@@ -341,6 +317,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#F44336',
   },
+  addressesContainer: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  addressSection: {
+    padding: 12,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+  },
+  addressLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4A5568',
+    marginBottom: 4,
+  },
+  addressText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2D3748',
+    marginBottom: 4,
+  },
+  contactText: {
+    fontSize: 12,
+    color: '#718096',
+    fontStyle: 'italic',
+  },
   timeLocationInfo: {
     marginBottom: 12,
   },
@@ -357,21 +361,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#2D3748',
-  },
-  locationInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  distanceText: {
-    fontSize: 12,
-    color: '#718096',
-    fontWeight: '500',
-  },
-  durationText: {
-    fontSize: 12,
-    color: '#718096',
-    fontWeight: '500',
   },
   quickActions: {
     flexDirection: 'row',

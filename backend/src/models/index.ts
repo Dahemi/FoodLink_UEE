@@ -64,6 +64,10 @@ const LegacyTaskSchema = new Schema({
   },
   distance: String,
   estimatedDuration: String,
+  originalDonationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Donation',
+  },
 }, { timestamps: true });
 
 export const TaskModel = mongoose.model('LegacyTask', LegacyTaskSchema);
